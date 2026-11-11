@@ -80,6 +80,15 @@ window.ChirasOnline = (function(){
     }
   }
 
+  function enviarSenalVoz(senal) {
+    if (ws && ws.readyState === WebSocket.OPEN && salaActual) {
+      ws.send(JSON.stringify({
+        tipo: 'VOZ_SENAL',
+        senal
+      }));
+    }
+  }
+
   function procesarMensaje(msg) {
     switch (msg.tipo) {
       case 'SALA_CREADA':
@@ -94,6 +103,7 @@ window.ChirasOnline = (function(){
       case 'JUGADOR_SALIO':
         jugadoresRemotos = msg.jugadores;
         if (callbacks.onSalaActualizada) callbacks.onSalaActualizada({ roomId: salaActual, jugadores: msg.jugadores, mensaje: msg.mensaje });
+        if (callbacks.onJugadorSalio && msg.tipo === 'JUGADOR_SALIO') callbacks.onJugadorSalio(msg);
         break;
 
       case 'PARTIDA_INICIADA':
@@ -102,6 +112,10 @@ window.ChirasOnline = (function(){
 
       case 'ACCION_REMOTO':
         if (callbacks.onAccionRemota) callbacks.onAccionRemota(msg);
+        break;
+
+      case 'VOZ_SENAL':
+        if (callbacks.onVozSenal) callbacks.onVozSenal(msg);
         break;
 
       case 'ERROR':
@@ -117,6 +131,7 @@ window.ChirasOnline = (function(){
     unirseSala,
     iniciarPartida,
     enviarAccion,
+    enviarSenalVoz,
     getMiJugador: () => miJugador,
     getSalaActual: () => salaActual,
     getJugadores: () => jugadoresRemotos,

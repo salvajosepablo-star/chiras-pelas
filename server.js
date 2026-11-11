@@ -205,6 +205,17 @@ wss.on('connection', (ws) => {
           }, ws);
           break;
         }
+
+        case 'VOZ_SENAL': {
+          // Señalización WebRTC para el Comunicador de Voz en vivo
+          if (!currentRoomId) return;
+          broadcastToRoom(currentRoomId, {
+            tipo: 'VOZ_SENAL',
+            de: playerId,
+            senal: data.senal
+          }, ws);
+          break;
+        }
       }
     } catch (e) {
       console.error('Error procesando mensaje ws:', e);

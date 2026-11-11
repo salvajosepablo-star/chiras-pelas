@@ -165,6 +165,17 @@ body.conMapa .hud{padding-left:calc(max(8px,env(safe-area-inset-left,0px)) + 112
 #btnTutorial{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);right:calc(max(12px,env(safe-area-inset-right,0px)) + 50px);z-index:10;background:rgba(30,18,8,.85);border:2px solid var(--amarillo);color:var(--amarillo);border-radius:20px;padding:5px 12px;font-family:var(--display);font-size:13px;display:flex;align-items:center;gap:5px;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.4);transition:transform .15s}
 #btnTutorial:active{transform:scale(.94)}
 
+/* Botón Comunicador de Voz en vivo */
+#btnVoz{position:fixed;right:max(12px,env(safe-area-inset-right,0px));top:18%;transform:translateY(-50%);width:78px;height:78px;min-width:0;padding:0;border-radius:50%;border:3px solid #20a65a;background:radial-gradient(circle at 35% 30%,#34d178,#1a8c49 60%,#0e522a);color:#fff;font-family:var(--display);font-size:13px;line-height:1.1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:0 0 0 3px rgba(32,166,90,.35),0 6px 14px rgba(0,0,0,.5);z-index:7;touch-action:manipulation;cursor:pointer;transition:all .15s}
+#btnVoz span{font-size:26px;line-height:1}
+#btnVoz[hidden]{display:none!important}
+#btnVoz.hablando{background:radial-gradient(circle at 35% 30%,#5cff8a,#20a65a 60%,#0f542c);border-color:#fff;box-shadow:0 0 0 5px rgba(92,255,138,.6), 0 0 20px #5cff8a;animation:tutOndaTap 1.2s infinite ease-out}
+#btnVoz.mutado{background:radial-gradient(circle at 35% 30%,#757575,#424242 60%,#212121);border-color:#aaa;box-shadow:none;opacity:.85}
+#btnVoz.conectando{background:radial-gradient(circle at 35% 30%,#ffc107,#d39e00 60%,#856404);border-color:#ffe8a1}
+#badgeVozRemoto{position:fixed;top:calc(env(safe-area-inset-top,0px) + 52px);left:50%;transform:translateX(-50%);background:rgba(20,12,6,.85);border:2px solid #20a65a;color:#5cff8a;padding:5px 12px;border-radius:20px;font-family:var(--display);font-size:13px;display:flex;align-items:center;gap:6px;z-index:10;box-shadow:0 3px 10px rgba(0,0,0,.5);pointer-events:none;transition:opacity .25s}
+#badgeVozRemoto[hidden]{display:none!important}
+#badgeVozRemoto .onda{width:8px;height:8px;border-radius:50%;background:#5cff8a;animation:latidoNada .8s infinite alternate}
+
 /* Capa del Tutorial Interactivo con Manito */
 #capaTutorial{position:fixed;inset:0;z-index:9999;pointer-events:auto;user-select:none;-webkit-user-select:none;touch-action:manipulation;font-family:var(--body);color:var(--crema)}
 #capaTutorial[hidden]{display:none!important}
@@ -234,10 +245,12 @@ body.conMapa .hud{padding-left:calc(max(8px,env(safe-area-inset-left,0px)) + 112
   <div class="turno"><b id="turnoNombre">Salida</b><span id="turnoInfo">Tire hacia el hueco</span></div>
   <div class="chips" id="chips"></div>
 </div>
+<div id="badgeVozRemoto" hidden><span class="onda"></span><span id="badgeVozTxt">Contrincante hablando</span></div>
 <div class="fuerza" id="fuerza" hidden><div id="fuerzaFill"></div></div>
 <div class="pista" id="pista" hidden><p id="pistaTxt">Arrastre hacia abajo para cargar la fuerza y a los lados para apuntar. Suelte para tirar. Sin línea de puntería: todo es a pulso.</p></div>
 <div class="botones" id="botones" hidden>
   <button id="btnNada" type="button" hidden aria-label="Cantar Nada de nada"><span>🚫</span>NADA DE<br>NADA</button>
+  <button id="btnVoz" type="button" hidden aria-label="Comunicador de voz en vivo"><span>🎙️</span>Hablar</button>
   <button id="btnTutorial" type="button" aria-label="Ver tutorial y guía de juego"><span>👆</span>Tutorial</button>
   <button id="btnMenu" type="button">Menú</button>
   <button id="btnBolsa" type="button">Bolsa</button>
@@ -3232,6 +3245,11 @@ if (location.hash === '#prueba'){
       window.__serieOnline = serieRemota;
       nucleo.aviso('¡Partida Online en Vivo!\nTodos a la raya');
       
+      // Mostrar botón de voz e iniciar comunicador
+      if (window.ChirasVoz) {
+        window.ChirasVoz.mostrarBoton(true);
+      }
+
       // Disparar inicio en el núcleo
       if (window.__clasico && window.__clasico.iniciarSerieCon) {
         window.__clasico.iniciarSerieCon(serieRemota);
@@ -3258,6 +3276,222 @@ if (location.hash === '#prueba'){
       }
     }
   });
+
+  window.ChirasOnline.on('onVozSenal', (data) => {
+    if (window.ChirasVoz) {
+      window.ChirasVoz.recibirSenal(data.senal);
+    }
+  });
+
+  window.ChirasOnline.on('onJugadorSalio', () => {
+    if (window.ChirasVoz) {
+      window.ChirasVoz.desconectar();
+    }
+  });
+})();
+</script>
+
+<script>
+// ==========================================
+// COMUNICADOR DE VOZ EN TIEMPO REAL (WebRTC)
+// ==========================================
+(() => {
+  let pc = null;
+  let localStream = null;
+  let remoteAudio = null;
+  let microActivo = false;
+  let conectadoVoz = false;
+  const btnVoz = document.getElementById('btnVoz');
+  const badgeVoz = document.getElementById('badgeVozRemoto');
+  const badgeVozTxt = document.getElementById('badgeVozTxt');
+
+  // Configuración de servidores STUN públicos de Google para atravesar NAT y firewalls de celular
+  const rtcConfig = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' }
+    ]
+  };
+
+  function asegurarElementoAudio() {
+    if (!remoteAudio) {
+      remoteAudio = document.createElement('audio');
+      remoteAudio.autoplay = true;
+      remoteAudio.playsInline = true;
+      document.body.appendChild(remoteAudio);
+    }
+  }
+
+  async function iniciarVoz() {
+    try {
+      btnVoz.classList.add('conectando');
+      btnVoz.innerHTML = '<span>⏳</span>...';
+
+      asegurarElementoAudio();
+
+      // Pedir permiso del micrófono con cancelación de eco y supresión de ruido
+      localStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        },
+        video: false
+      });
+
+      pc = new RTCPeerConnection(rtcConfig);
+
+      // Añadir pistas de audio local
+      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+      // Recibir audio del contrincante
+      pc.ontrack = (event) => {
+        console.log('[Voz] Pista remota de audio recibida');
+        if (remoteAudio.srcObject !== event.streams[0]) {
+          remoteAudio.srcObject = event.streams[0];
+          remoteAudio.play().catch(e => console.log('Autoplay bloqueado:', e));
+          mostrarBadgeRemoto(true);
+        }
+      };
+
+      // Candidatos ICE
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          window.ChirasOnline.enviarSenalVoz({ candidate: event.candidate });
+        }
+      };
+
+      pc.onconnectionstatechange = () => {
+        console.log('[Voz] Estado conexión:', pc.connectionState);
+        if (pc.connectionState === 'connected') {
+          conectadoVoz = true;
+          actualizarBoton(true);
+          mostrarBadgeRemoto(true, '¡Voz Conectada!');
+          setTimeout(() => mostrarBadgeRemoto(false), 3000);
+        } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+          conectadoVoz = false;
+          mostrarBadgeRemoto(false);
+          actualizarBoton(false);
+        }
+      };
+
+      // Si soy el Host (creador de la sala), creo la oferta de llamada
+      const miP = window.ChirasOnline.getMiJugador();
+      if (miP && miP.isHost) {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        window.ChirasOnline.enviarSenalVoz({ sdp: pc.localDescription });
+      }
+
+      microActivo = true;
+      actualizarBoton(true);
+
+    } catch (err) {
+      console.error('Error al iniciar voz:', err);
+      btnVoz.classList.remove('conectando');
+      actualizarBoton(false);
+      alert('No se pudo acceder al micrófono. Por favor permite el acceso al micrófono en tu navegador para hablar.');
+    }
+  }
+
+  async function recibirSenal(senal) {
+    try {
+      if (!pc) {
+        // Si aún no hemos iniciado localmente pero nos llega una señal, iniciamos
+        await iniciarVoz();
+      }
+
+      if (senal.sdp) {
+        await pc.setRemoteDescription(new RTCSessionDescription(senal.sdp));
+        if (senal.sdp.type === 'offer') {
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          window.ChirasOnline.enviarSenalVoz({ sdp: pc.localDescription });
+        }
+      } else if (senal.candidate) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(senal.candidate));
+        } catch(e) {
+          console.warn('Error añadiendo candidate ICE:', e);
+        }
+      }
+    } catch (err) {
+      console.error('Error procesando señal WebRTC:', err);
+    }
+  }
+
+  function alternarMicrofono() {
+    if (!pc) {
+      iniciarVoz();
+      return;
+    }
+
+    if (localStream) {
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        microActivo = audioTrack.enabled;
+        actualizarBoton(microActivo);
+      }
+    }
+  }
+
+  function actualizarBoton(activo) {
+    btnVoz.classList.remove('conectando');
+    if (activo) {
+      btnVoz.classList.remove('mutado');
+      btnVoz.classList.add('hablando');
+      btnVoz.innerHTML = '<span>🎙️</span>Hablando';
+      btnVoz.setAttribute('aria-label', 'Micrófono encendido (tocar para silenciar)');
+    } else {
+      btnVoz.classList.remove('hablando');
+      btnVoz.classList.add('mutado');
+      btnVoz.innerHTML = '<span>🔇</span>Silencio';
+      btnVoz.setAttribute('aria-label', 'Micrófono apagado (tocar para hablar)');
+    }
+  }
+
+  function mostrarBadgeRemoto(mostrar, texto) {
+    if (mostrar) {
+      badgeVoz.hidden = false;
+      if (texto) badgeVozTxt.textContent = texto;
+      else badgeVozTxt.textContent = 'Canal de voz activo';
+    } else {
+      badgeVoz.hidden = true;
+    }
+  }
+
+  function desconectar() {
+    if (localStream) {
+      localStream.getTracks().forEach(t => t.stop());
+      localStream = null;
+    }
+    if (pc) {
+      pc.close();
+      pc = null;
+    }
+    conectadoVoz = false;
+    mostrarBadgeRemoto(false);
+    btnVoz.hidden = true;
+  }
+
+  function mostrarBoton(visible) {
+    btnVoz.hidden = !visible;
+    if (visible && !pc) {
+      // Preguntar automáticamente o conectar para tener el canal listo
+      iniciarVoz();
+    }
+  }
+
+  btnVoz.addEventListener('click', alternarMicrofono);
+
+  window.ChirasVoz = {
+    mostrarBoton,
+    iniciarVoz,
+    recibirSenal,
+    desconectar
+  };
 })();
 </script>
 
