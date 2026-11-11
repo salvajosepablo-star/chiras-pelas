@@ -1,0 +1,1730 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#2a1d13">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Chiras Pelas">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icono.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icono.svg">
+<title>Chiras Pelas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: cancha 3D a pantalla completa; HUD flotante arriba (turno y jugadores), barra de fuerza a la izquierda, botones abajo a la derecha. */
+:root{
+  --tierra:#2a1d13;
+  --tierra-2:#3d2b1d;
+  --crema:#f7ead0;
+  --amarillo:#f5c518;
+  --azul:#1d55b3;
+  --rojo:#d7263d;
+  --velo:rgba(28,18,10,.78);
+  --display:'Lilita One','Arial Rounded MT Bold','Trebuchet MS',sans-serif;
+  --body:'Atkinson Hyperlegible','Segoe UI',system-ui,sans-serif;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none;touch-action:none;background:var(--tierra);color:var(--crema);font-family:var(--body);-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#app{position:fixed;inset:0}
+#app canvas{display:block;touch-action:none;width:100%;height:100%}
+.hud{position:fixed;left:0;right:0;top:0;padding-top:calc(env(safe-area-inset-top,0px) + 8px);padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.turno{align-self:flex-start;background:var(--velo);border-radius:14px;padding:8px 12px;display:flex;flex-direction:column;gap:2px;max-width:100%}
+.turno b{font-family:var(--display);font-weight:400;font-size:20px;letter-spacing:.3px}
+.turno span{font-size:13px;opacity:.9}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:flex;align-items:center;gap:6px;background:var(--velo);border-radius:999px;padding:4px 10px 4px 6px;font-size:13px;font-weight:700}
+.chip i{width:18px;height:18px;border-radius:50%;display:block;background-size:cover;background-position:center}
+.chip .cuenta{font-variant-numeric:tabular-nums;color:var(--amarillo)}
+.chip.fuera{opacity:.45;text-decoration:line-through}
+.chip.activo{outline:2px solid var(--amarillo)}
+.poder{background:var(--amarillo);color:var(--tierra);border-radius:6px;padding:0 5px;font-size:11px;letter-spacing:.6px}
+.fuerza{position:fixed;left:max(14px,env(safe-area-inset-left,0px));top:50%;transform:translateY(-50%);width:16px;height:38vh;border-radius:10px;background:var(--velo);border:2px solid rgba(247,234,208,.35);overflow:hidden;pointer-events:none}
+.fuerza div{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(to top,var(--amarillo),var(--rojo))}
+.pista{position:fixed;left:0;right:0;bottom:0;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 14px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(96px,env(safe-area-inset-right,0px));pointer-events:none}
+.pista p{margin:0;display:inline-block;background:var(--velo);border-radius:12px;padding:8px 12px;font-size:14px;line-height:1.35}
+.botones{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 14px);display:flex;flex-direction:column;gap:8px}
+.botones button{font-family:var(--display);font-size:15px;background:var(--velo);color:var(--crema);border:2px solid rgba(247,234,208,.35);border-radius:12px;padding:8px 12px;min-width:72px}
+.botones button[aria-pressed="true"]{border-color:var(--amarillo);color:var(--amarillo)}
+.aviso{position:fixed;left:50%;top:32%;transform:translate(-50%,-50%) scale(.9);font-family:var(--display);font-size:clamp(24px,7vw,40px);text-align:center;color:var(--amarillo);text-shadow:0 3px 0 var(--tierra),0 0 18px rgba(0,0,0,.6);opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;width:min(90vw,520px);text-wrap:balance}
+.aviso.ver{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.capa{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(29,85,179,.55),rgba(42,29,19,.92) 60%);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));overflow-y:auto}
+.tarjeta{width:min(100%,440px);display:flex;flex-direction:column;gap:14px;padding-block:20px}
+.tarjeta h1{font-family:var(--display);font-weight:400;font-size:clamp(48px,15vw,72px);line-height:.9;margin:0;color:var(--amarillo);text-shadow:0 5px 0 var(--rojo),0 9px 0 var(--azul);text-wrap:balance}
+.tarjeta .sub{margin:4px 0 0;font-size:15px;opacity:.9}
+.tarjeta ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:15px;line-height:1.4}
+.tarjeta h2{font-family:var(--display);font-weight:400;font-size:18px;margin:0;letter-spacing:.3px}
+.rivales{display:flex;gap:8px}
+.rivales button{flex:1;font-family:var(--display);font-size:22px;padding:10px 0;border-radius:12px;background:var(--tierra-2);color:var(--crema);border:2px solid rgba(247,234,208,.3)}
+.rivales button[aria-pressed="true"]{background:var(--amarillo);color:var(--tierra);border-color:var(--amarillo)}
+.jugar{font-family:var(--display);font-size:26px;padding:14px;border-radius:16px;border:0;background:var(--rojo);color:var(--crema);box-shadow:0 5px 0 #7d1322}
+.jugar:active{transform:translateY(3px);box-shadow:0 2px 0 #7d1322}
+.rivales button:disabled{opacity:.3}
+.nombres{display:flex;flex-direction:column;gap:8px}
+.nombres label{display:grid;grid-template-columns:18px 1fr;gap:10px;align-items:center}
+.nombres i{width:14px;height:14px;border-radius:50%;display:block}
+.nombres input{font:inherit;font-size:17px;padding:10px 12px;border-radius:12px;border:2px solid rgba(247,234,208,.3);background:var(--tierra-2);color:var(--crema);width:100%;min-width:0}
+.nombres input:focus{outline:none;border-color:var(--amarillo)}
+.cantos .listo{font-family:var(--display);font-size:16px;padding:9px;border-radius:12px;border:2px solid rgba(247,234,208,.4);background:transparent;color:var(--crema)}
+.grupo{display:flex;flex-direction:column;gap:14px}
+/* menús largos: empiezan arriba y se pueden recorrer completos */
+.capa{align-items:flex-start}
+.capa>.tarjeta{margin-block:auto}
+.vols{display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:center;font-size:14px}
+.vols input[type=range]{width:100%;accent-color:var(--amarillo)}
+.chequeo{display:flex;gap:10px;align-items:center;font-size:15px}
+.chequeo input{width:22px;height:22px;accent-color:var(--amarillo)}
+.nota{font-size:13px;opacity:.75;margin:0;line-height:1.4}
+button:focus-visible{outline:3px solid var(--amarillo);outline-offset:2px}
+.canto{background:var(--azul);color:var(--crema);border-radius:6px;padding:0 5px;font-size:11px;letter-spacing:.6px}
+.cantos{position:fixed;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 14px);background:var(--velo);border:2px solid var(--amarillo);border-radius:16px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;max-width:520px;margin-inline:auto;z-index:5}
+.cantos b{font-family:var(--display);font-weight:400;font-size:18px;color:var(--amarillo)}
+.cantos .reloj{height:6px;border-radius:3px;background:rgba(247,234,208,.2);overflow:hidden}
+.cantos .reloj div{height:100%;width:100%;background:var(--amarillo)}
+.cantoBtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cantoBtns button{font-family:var(--display);font-size:16px;padding:10px 6px;border-radius:12px;border:0;background:var(--rojo);color:var(--crema);box-shadow:0 3px 0 #7d1322}
+.cantoBtns button:disabled{background:var(--tierra-2);color:rgba(247,234,208,.4);box-shadow:none;text-decoration:line-through}
+.tarjeta h1.chico{font-size:clamp(36px,11vw,52px)}
+.lista{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.item{display:grid;grid-template-columns:48px 1fr;grid-template-rows:auto auto;column-gap:8px;align-items:center;text-align:left;background:var(--tierra-2);border:2px solid rgba(247,234,208,.2);border-radius:14px;padding:8px;color:var(--crema);font-family:var(--body);position:relative}
+button.item:active{border-color:var(--amarillo)}
+.item img{width:48px;height:48px;grid-row:1 / span 2;filter:drop-shadow(0 3px 3px rgba(0,0,0,.4))}
+.item .nom{font-weight:700;font-size:14px;line-height:1.15}
+.item .val{font-size:12px;opacity:.8}
+.item .n{position:absolute;left:40px;top:4px;font-family:var(--display);font-size:15px;color:var(--amarillo);text-shadow:0 1px 0 var(--tierra)}
+.tabla{display:flex;flex-direction:column;gap:6px}
+.fila{display:grid;grid-template-columns:18px 1fr auto;gap:10px;align-items:center;background:var(--tierra-2);border-radius:10px;padding:8px 12px}
+.fila i{width:12px;height:12px;border-radius:50%;display:block}
+.fila .nom{font-weight:700}
+.fila .cuantas{font-variant-numeric:tabular-nums;color:var(--amarillo);font-size:14px}
+.fila.pelado{opacity:.55}
+.fila.pelado .cuantas{color:var(--rojo)}
+/* Nada de nada: botón grande, rojo y a la vista para cantarlo rápido */
+.botones #btnNada{position:fixed;right:max(12px,env(safe-area-inset-right,0px));top:34%;transform:translateY(-50%);width:96px;height:96px;min-width:0;padding:0;border-radius:50%;border:4px solid #fff;background:radial-gradient(circle at 35% 30%,#ff7a8a,#d7263d 60%,#8e1022);color:#fff;font-family:var(--display);font-size:14px;line-height:1.05;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:0 0 0 4px rgba(215,38,61,.45),0 6px 16px rgba(0,0,0,.5);z-index:7;touch-action:manipulation;animation:latidoNada 1s ease-in-out infinite}
+.botones #btnNada[hidden]{display:none!important}
+.botones #btnNada span{font-size:34px;line-height:1}
+.botones #btnNada:active{transform:translateY(-50%) scale(.92)}
+@keyframes latidoNada{0%,100%{box-shadow:0 0 0 4px rgba(215,38,61,.45),0 6px 16px rgba(0,0,0,.5)}50%{box-shadow:0 0 0 14px rgba(215,38,61,.15),0 6px 16px rgba(0,0,0,.5)}}
+/* Barra fija de poderes del clásico: siempre en pantalla (juego de agilidad) */
+.barraPod{position:fixed;left:max(8px,env(safe-area-inset-left,0px));right:calc(max(12px,env(safe-area-inset-right,0px)) + 88px);bottom:calc(env(safe-area-inset-bottom,0px) + 10px);display:flex;flex-direction:column;gap:6px;z-index:6}
+.filaPod{--c:#fff;display:flex;gap:5px;align-items:stretch;background:rgba(20,12,6,.75);border:2px solid var(--c);border-radius:14px;padding:5px}
+.filaPod .quien{writing-mode:vertical-rl;transform:rotate(180deg);font-family:var(--display);font-size:11px;color:var(--c);max-height:56px;overflow:hidden;white-space:nowrap}
+.filaPod button{flex:1 1 0;width:0;min-width:0;height:56px;border:0;border-radius:10px;background:#3a2a1c;color:var(--crema);font-family:var(--display);font-size:10px;line-height:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;position:relative;touch-action:manipulation;opacity:.45;padding:0 1px;overflow:hidden}
+.filaPod button .ic{font-size:21px;line-height:1}
+.filaPod button .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.filaPod button.listo{opacity:1;background:#2c6fd6;box-shadow:0 0 0 2px #fff inset,0 0 12px #5aa0ff}
+.filaPod button.nada{background:#5a1a22}
+.filaPod button.nada.listo{background:#d7263d;box-shadow:0 0 0 2px #fff inset;animation:latidoNada 1s ease-in-out infinite}
+.filaPod button.usado{opacity:.8}
+.filaPod button.usado::after{content:'✓';position:absolute;top:2px;right:4px;font-size:13px;color:#5cff8a}
+.filaPod button.anulado{opacity:.9}
+.filaPod button.anulado::after{content:'🚫';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:26px;background:rgba(0,0,0,.4)}
+.filaPod button:active{transform:scale(.94)}
+@media (prefers-reduced-motion:reduce){.aviso{transition:none}.botones #btnNada{animation:none}.filaPod button.nada.listo{animation:none}}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<div class="hud" id="hud" hidden>
+  <div class="turno"><b id="turnoNombre">Salida</b><span id="turnoInfo">Tire hacia el hueco</span></div>
+  <div class="chips" id="chips"></div>
+</div>
+<div class="fuerza" id="fuerza" hidden><div id="fuerzaFill"></div></div>
+<div class="pista" id="pista" hidden><p id="pistaTxt">Arrastre hacia abajo para cargar la fuerza y a los lados para apuntar. Suelte para tirar. Sin línea de puntería: todo es a pulso.</p></div>
+<div class="botones" id="botones" hidden>
+  <button id="btnNada" type="button" hidden aria-label="Cantar Nada de nada"><span>🚫</span>NADA DE<br>NADA</button>
+  <button id="btnMenu" type="button">Menú</button>
+  <button id="btnBolsa" type="button">Bolsa</button>
+  <button id="btnVista" type="button" aria-pressed="false">Vista</button>
+  <button id="btnSonido" type="button" aria-pressed="true">Sonido</button>
+</div>
+<div class="barraPod" id="barraPod" hidden></div>
+<div class="aviso" id="aviso"></div>
+<div class="cantos" id="cantos" hidden>
+  <b id="cantosTitulo">¿Canta algo?</b>
+  <div class="reloj"><div id="cantosReloj"></div></div>
+  <div class="cantoBtns" id="cantoBtns">
+    <button type="button" data-k="barrera">Barrera</button>
+    <button type="button" data-k="desquadris">Desquadris</button>
+    <button type="button" data-k="ochera">Ochera muere</button>
+    <button type="button" data-k="carambola">Carambola muere</button>
+    <button type="button" data-k="arena">Arena movediza</button>
+  </div>
+  <div class="cantoBtns" id="ladoDesq" hidden>
+    <button type="button" data-lado="1">Mover a la izquierda</button>
+    <button type="button" data-lado="-1">Mover a la derecha</button>
+  </div>
+  <button class="listo" id="btnNoCanto" type="button" hidden>No canto, que tire</button>
+</div>
+
+<div class="capa" id="menu">
+  <div class="tarjeta">
+    <div>
+      <h1>Chiras Pelas</h1>
+      <p class="sub">Canicas de barrio: precisión, potencia y pulso.</p>
+    </div>
+    <h2>Modo de juego</h2>
+    <div class="rivales" id="modos">
+      <button type="button" data-m="clasico" aria-pressed="true">Clásico</button>
+      <button type="button" data-m="batalla" aria-pressed="false">Batalla</button>
+      <button type="button" data-m="academia" aria-pressed="false">Academia</button>
+    </div>
+    <div class="grupo" id="opcAcademia" hidden>
+      <p class="nota">Academia de puntería: retos para mejorar el pulso. Se mejora practicando.</p>
+      <ol>
+        <li>Enchole desde 5 m, 12 m y desde la raya (20 m).</li>
+        <li>Péguele a una canica blanco.</li>
+        <li>Potencia exacta: deje la bola dentro del círculo.</li>
+      </ol>
+      <p class="nota">Cada reto da hasta 3 estrellas. Completar la academia desbloquea una canica legendaria.</p>
+    </div>
+    <div class="grupo" id="opcClasico">
+    <p class="nota">Por turnos, con bolsa de canicas y cantos.</p>
+    <ol>
+      <li><b>Salida:</b> todos lanzan su bola desde la raya. La que quede más cerca del hueco tira primero.</li>
+      <li><b>Encholar:</b> meta la bola en el hueco, a 20 metros, y gana el poder. Vuelve a tirar.</li>
+      <li><b>Cazar:</b> con el poder, pegue a la bola de otro jugador y lo saca del juego.</li>
+      <li><b>Quitar el poder:</b> sin poder, si le pega a la bola de quien lo tiene, se lo quita.</li>
+      <li><b>Pipe y repite:</b> cada vez que le pega a otra bola, vuelve a tirar.</li>
+      <li>Gana el último que quede.</li>
+      <li><b>Canicas:</b> cada uno tiene su bolsa. El que caza se queda con la canica del cazado. El que quede en cero queda pelado.</li>
+      <li><b>A pulso:</b> no hay línea de puntería. Usted apunta y calcula la fuerza.</li>
+    </ol>
+    <h2>Cantos (ilimitados: en cada turno se puede cantar cada uno)</h2>
+    <p class="nota">Los poderes están siempre abajo en la barra y se pueden usar en cualquier momento, aunque nadie le esté tirando y aunque las bolas vayan rodando. ¡Gana el que toque primero! Cada canto se puede usar una vez por turno (vuelven en el turno siguiente).</p>
+    <ol>
+      <li><b>Barrera:</b> pone una tablita entre su bola y la del que lo va a cazar.</li>
+      <li><b>Desquadris:</b> corre su bola una cuarta de lado, sin alejarse del que va a tirar.</li>
+      <li><b>Ochera muere:</b> si alguien la canta, el que tira queda eliminado si: le pega a un contrincante y su propia bola se va al hueco; o le pega a un contrincante y lo echa al hueco; o tiene el poder y se vuelve a meter al hueco.</li>
+      <li><b>Carambola muere:</b> si le pega a usted y a otra bola, muere él.</li>
+      <li><b>🚫 Nada de nada:</b> se canta en cualquier momento y gana el primero. A todos los demás se les anulan los poderes (Barrera, Desquadris, Ochera, Carambola, Arena y su Nada de nada) hasta que termine el tiro. Después de cada tiro (pegue o no) hay que volver a cantarlo. Lo que alguien ya haya cantado antes se le respeta.</li>
+      <li><b>🌪️ Viento:</b> empieza a ventear fuerte. El siguiente tiro de otro jugador (o el que ya va rodando) sale desviado por el viento.</li>
+      <li><b>🌀 Arena movediza:</b> el que va a ser atacado la canta y le sale un remolino de arena alrededor. Si la bola del que tira entra en la arena, se la traga y la escupe lejos, en un punto de la cancha retirado de todos.</li>
+    </ol>
+    <h2>¿Cuántas personas juegan en este celular?</h2>
+    <div class="rivales" id="personas">
+      <button type="button" data-n="1" aria-pressed="true">1</button>
+      <button type="button" data-n="2" aria-pressed="false">2</button>
+      <button type="button" data-n="3" aria-pressed="false">3</button>
+      <button type="button" data-n="4" aria-pressed="false">4</button>
+    </div>
+    <div class="nombres" id="nombres"></div>
+    <h2>¿Cuántos rivales de la máquina?</h2>
+    <div class="rivales" id="rivales">
+      <button type="button" data-n="0" aria-pressed="false">0</button>
+      <button type="button" data-n="1" aria-pressed="false">1</button>
+      <button type="button" data-n="2" aria-pressed="true">2</button>
+      <button type="button" data-n="3" aria-pressed="false">3</button>
+    </div>
+    <p class="nota">Varias personas: se pasan el celular cuando a cada uno le toque tirar.</p>
+    <p class="nota">Cómo tirar: ponga el dedo en la pantalla, arrastre hacia abajo para cargar la fuerza y de lado a lado para apuntar. Suelte para tirar.</p>
+    </div>
+    <div class="grupo" id="opcBatalla" hidden>
+      <p class="nota">Sin turnos: los dos tiran cuando quieran, al mismo tiempo.</p>
+      <ol>
+        <li><b>Turno del enchole:</b> el que enchola tira y los demás quedan congelados hasta que haga su siguiente tiro.</li>
+        <li><b>La verdad:</b> el primero que enchole tiene LA VERDAD. Solo con ella un golpe elimina al rival.</li>
+        <li><b>Quitar la verdad:</b> si el que no la tiene le pega al que la tiene, se la quita.</li>
+        <li><b>Nochera muere:</b> si con la verdad le pega al rival y después su bola se mete al hueco, pierde usted.</li>
+        <li><b>Barrera:</b> aguanta un golpe válido.</li>
+        <li><b>Nada de nada:</b> solo con LA VERDAD. El rival no puede poner Barrera ni Descuadris nuevos por 3 segundos; la Barrera que ya tenía puesta sí le sirve. Igual hay que acertarle.</li>
+        <li><b>Poder cero:</b> el rival no puede activar poderes nuevos por unos segundos. La barrera que ya tenía puesta sí le sirve.</li>
+        <li><b>Descuadris:</b> cambia de puesto su canica con la del rival.</li>
+      </ol>
+      <h2>¿Contra quién?</h2>
+      <div class="rivales" id="btContra">
+        <button type="button" data-c="persona" aria-pressed="true">Otra persona</button>
+        <button type="button" data-c="ia" aria-pressed="false">La máquina</button>
+      </div>
+      <div class="nombres">
+        <label><i style="background:#d7263d"></i><input id="btNom1" type="text" maxlength="12" autocomplete="off" aria-label="Nombre del jugador 1" placeholder="Jugador 1"></label>
+        <label id="btFila2"><i style="background:#1f6fd1"></i><input id="btNom2" type="text" maxlength="12" autocomplete="off" aria-label="Nombre del jugador 2" placeholder="Jugador 2"></label>
+      </div>
+      <label class="chequeo"><input type="checkbox" id="btExtras"> Poderes extra (en prueba): Superpotencia, Congelación, Turbo y Golpe trueno</label>
+      <h2>Cámara</h2>
+      <div class="rivales" id="btCamara">
+        <button type="button" data-cam="clasica" aria-pressed="true">Detrás de la bola</button>
+        <button type="button" data-cam="arriba" aria-pressed="false">Desde arriba</button>
+      </div>
+      <label class="chequeo"><input type="checkbox" id="btIman" checked> Ayuda para encholar: imán cuando la bola pasa muy cerca del hueco</label>
+      <label class="chequeo"><input type="checkbox" id="btEspecial"> Partida especial: eventos sorpresa (viento, arena movediza, terreno rápido)</label>
+      <div class="nombres" id="btCanicas"></div>
+      <p class="nota">Cámara detrás de la bola: igual que en el clásico, arrastre hacia abajo para cargar la fuerza y de lado a lado para apuntar. Suelte para tirar. Con otra persona la pantalla se parte en dos: pongan el celular en la mesa, el jugador 1 juega en la mitad de abajo y el jugador 2 en la de arriba.</p>
+      <p class="nota">Cámara desde arriba: arrastre hacia atrás como una cauchera; la bola sale hacia el lado contrario.</p>
+    </div>
+    <h2>Volumen</h2>
+    <div class="vols">
+      <label for="volMusica">Música</label><input type="range" id="volMusica" min="0" max="100">
+      <label for="volEfectos">Efectos</label><input type="range" id="volEfectos" min="0" max="100">
+      <label for="volVoz">Narrador</label><input type="range" id="volVoz" min="0" max="100">
+    </div>
+    <button class="jugar" id="btnJugar" type="button">Jugar</button>
+  </div>
+</div>
+
+<div class="capa" id="fin" hidden>
+  <div class="tarjeta">
+    <h1 id="finTitulo">¡Ganó!</h1>
+    <p class="sub" id="finTxt"></p>
+    <div class="tabla" id="finTabla"></div>
+    <button class="jugar" id="btnOtra" type="button">Siguiente ronda</button>
+  </div>
+</div>
+
+<div class="capa" id="escoger" hidden>
+  <div class="tarjeta">
+    <h1 class="chico" id="escogerTitulo">Escoja su bola</h1>
+    <p class="sub" id="escogerTxt"></p>
+    <div class="lista" id="escogerLista"></div>
+  </div>
+</div>
+
+<div class="capa" id="bolsaCapa" hidden>
+  <div class="tarjeta">
+    <h1 class="chico" id="bolsaTitulo">Su bolsa</h1>
+    <p class="sub" id="bolsaTxt"></p>
+    <div class="lista" id="bolsaLista"></div>
+    <button class="jugar" id="btnCerrarBolsa" type="button">Seguir jugando</button>
+  </div>
+</div>
+
+<script src="lib/three.min.js"></script>
+<script>
+(function(){
+const V3 = THREE.Vector3;
+const $ = s => document.querySelector(s);
+
+// ---------- Constantes del mundo (metros) ----------
+const R = 0.11;            // radio de la bola (agrandada para que se vea)
+const HOLE_R = 0.17;       // radio del hueco
+const HOLE = new V3(0, 0, -20); // hueco a 20 m de la raya
+const G = 9.8;
+const DECEL_DIRT = 1.15, DECEL_GRASS = 4.5;
+const MAXV = 14;              // con toda la fuerza la bola puede pasarse del hueco y rodar unos 80 m
+const CURVA = 1.5;            // curva de la fuerza: más control en tiros suaves
+const CANCHA = {x: 35, zMax: 25, zMin: -110}; // cancha de tierra de 70 x 135 m
+const CUARTA = 0.6;           // una cuarta (meñique a pulgar) a escala del juego
+const BAR_L = 0.9;            // largo de la barrera
+const MIRA_CLASICA = false;   // sin línea de puntería en el clásico: todo a pulso
+const CANTOS_DEFENSIVOS = ['barrera', 'desquadris', 'ochera', 'carambola', 'arena', 'viento'];   // Nada de nada los anula todos
+const CANTOS = {barrera: 'Barrera', desquadris: 'Desquadris', ochera: 'Ochera muere', carambola: 'Carambola muere', arena: 'Arena movediza', viento: 'Viento'};
+const COLORES = [0xd7263d, 0x1f6fd1, 0xf2b705, 0x20a65a];
+const NOMBRES_IA = ['El Mono', 'La Flaca', 'Juancho'];
+const MODO_PRUEBA = location.hash.startsWith('#prueba');
+// Catálogo de canicas: entre más bonita, más vale
+const ESTILOS = [
+  {id: 'agua',     nombre: 'Agüita',          valor: 100,  tipo: 'cristal', tinte: 0x9ad8ff, opacidad: .42, nucleo: 'hilo',     colores: ['#ffffff']},
+  {id: 'botella',  nombre: 'Botella',         valor: 150,  tipo: 'cristal', tinte: 0x38d44c, opacidad: .55, nucleo: 'petalos',  colores: ['#e4ff7a', '#ffffff']},
+  {id: 'ojo',      nombre: 'Ojo de gato',     valor: 250,  tipo: 'cristal', tinte: 0xeef6ff, opacidad: .30, nucleo: 'petalos',  colores: ['#ff4a1c', '#ffd21c', '#1c7bff']},
+  {id: 'lechera',  nombre: 'Lechera',         valor: 350,  tipo: 'opaca', patron: 'remolino', fondo: '#f6f1e8', bandas: ['#e0322b', '#f08a24', '#e0322b']},
+  {id: 'tigre',    nombre: 'Tigre',           valor: 500,  tipo: 'opaca', patron: 'rayas',    fondo: '#f7a21b', bandas: ['#1b120a']},
+  {id: 'marina',   nombre: 'Marina',          valor: 600,  tipo: 'opaca', patron: 'remolino', fondo: '#1f5fd1', bandas: ['#ffffff', '#9fd0ff', '#0b2f7a']},
+  {id: 'morada',   nombre: 'Morada',          valor: 700,  tipo: 'opaca', patron: 'remolino', fondo: '#4b0f96', bandas: ['#d36cff', '#ff9cf5', '#ffffff']},
+  {id: 'burbujas', nombre: 'Burbujas',        valor: 850,  tipo: 'cristal', tinte: 0xf4fbff, opacidad: .28, nucleo: 'burbujas'},
+  {id: 'arcoiris', nombre: 'Arcoíris',        valor: 1000, tipo: 'opaca', patron: 'remolino', fondo: '#18a9d6', bandas: ['#ff3fb4', '#ffe14a', '#3dff9a', '#7a5cff', '#ffffff']},
+  {id: 'perla',    nombre: 'Perla',           valor: 1300, tipo: 'opaca', patron: 'perla'},
+  {id: 'oro',      nombre: 'Escarcha de oro', valor: 1600, tipo: 'cristal', tinte: 0xfff6dc, opacidad: .30, nucleo: 'oro'},
+  {id: 'galaxia',  nombre: 'Galaxia',         valor: 2000, tipo: 'opaca', patron: 'galaxia'}
+];
+const ESTILO = {}; ESTILOS.forEach(e => ESTILO[e.id] = e);
+const rareza = v => v < 300 ? 'Común' : v < 700 ? 'Buena' : v < 1200 ? 'Fina' : 'Joya';
+const pesos = v => '$' + v.toLocaleString('es-CO');
+
+// ---------- Render ----------
+const renderer = new THREE.WebGLRenderer({antialias: true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+$('#app').appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xa9d3ee);
+scene.fog = new THREE.Fog(0xa9d3ee, 45, 220);
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.05, 500);
+
+scene.add(new THREE.HemisphereLight(0xe4f3ff, 0x5a4630, 0.8));
+const sol = new THREE.DirectionalLight(0xfff0d2, 1.0);
+sol.castShadow = true;
+sol.shadow.mapSize.set(1024, 1024);
+Object.assign(sol.shadow.camera, {left: -5, right: 5, top: 5, bottom: -5, near: 1, far: 40});
+sol.shadow.bias = -0.0008;
+scene.add(sol, sol.target);
+// Reflejos para que las canicas brillen: un cielo sencillo alrededor
+(function entorno(){
+  const c = document.createElement('canvas'); c.width = 16; c.height = 256;
+  const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 256);
+  gr.addColorStop(0, '#7fb8f0'); gr.addColorStop(.45, '#e8f6ff'); gr.addColorStop(.52, '#9c7a55'); gr.addColorStop(1, '#4a3424');
+  g.fillStyle = gr; g.fillRect(0, 0, 16, 256);
+  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding;
+  const es = new THREE.Scene();
+  es.add(new THREE.Mesh(new THREE.SphereGeometry(50, 24, 12), new THREE.MeshBasicMaterial({map: t, side: THREE.BackSide})));
+  const sun = new THREE.Mesh(new THREE.SphereGeometry(6, 12, 8), new THREE.MeshBasicMaterial({color: 0xffffff}));
+  sun.position.set(20, 30, 15); es.add(sun);
+  const pm = new THREE.PMREMGenerator(renderer);
+  scene.environment = pm.fromScene(es, 0.02).texture;
+})();
+
+function texCanvas(w, h, draw, rx, ry){
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry);
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  t.encoding = THREE.sRGBEncoding;
+  return t;
+}
+const texTierra = texCanvas(256, 256, (g, w, h) => {
+  g.fillStyle = '#9a7150'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 2600; i++){
+    const l = 40 + Math.random() * 35;
+    g.fillStyle = `hsla(${25 + Math.random()*12},${30 + Math.random()*20}%,${l}%,${0.25 + Math.random()*0.4})`;
+    g.fillRect(Math.random()*w, Math.random()*h, 1 + Math.random()*2, 1 + Math.random()*2);
+  }
+  for (let i = 0; i < 60; i++){
+    g.fillStyle = `hsla(30,15%,${55 + Math.random()*25}%,.8)`;
+    g.beginPath(); g.ellipse(Math.random()*w, Math.random()*h, 1 + Math.random()*2.5, 1 + Math.random()*2, Math.random()*3, 0, 7); g.fill();
+  }
+}, 18, 34);
+const texPasto = texCanvas(256, 256, (g, w, h) => {
+  g.fillStyle = '#5b8c37'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 3000; i++){
+    g.strokeStyle = `hsla(${85 + Math.random()*30},${40 + Math.random()*25}%,${25 + Math.random()*30}%,.6)`;
+    const x = Math.random()*w, y = Math.random()*h;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + (Math.random()-.5)*3, y - 3 - Math.random()*4); g.stroke();
+  }
+}, 110, 110);
+
+const pasto = new THREE.Mesh(new THREE.PlaneGeometry(550, 550), new THREE.MeshLambertMaterial({map: texPasto}));
+pasto.rotation.x = -Math.PI/2; pasto.receiveShadow = true; scene.add(pasto);
+// el pasto siempre queda por debajo de la tierra (evita que se vea pasto encima de la cancha con la cámara baja)
+Object.assign(pasto.material, {polygonOffset: true, polygonOffsetFactor: 4, polygonOffsetUnits: 4});
+
+const cancha = new THREE.Mesh(new THREE.PlaneGeometry(CANCHA.x*2, CANCHA.zMax - CANCHA.zMin), new THREE.MeshLambertMaterial({map: texTierra}));
+cancha.rotation.x = -Math.PI/2; cancha.position.set(0, 0.002, (CANCHA.zMax + CANCHA.zMin)/2); cancha.receiveShadow = true; scene.add(cancha);
+
+const raya = new THREE.Mesh(new THREE.PlaneGeometry(7, 0.07), new THREE.MeshBasicMaterial({color: 0xf3e6c9, transparent: true, opacity: .85}));
+raya.rotation.x = -Math.PI/2; raya.position.set(0, 0.004, 0); scene.add(raya);
+
+const borde = new THREE.Mesh(new THREE.RingGeometry(HOLE_R, HOLE_R + 0.07, 40), new THREE.MeshLambertMaterial({color: 0x5b3c22}));
+borde.rotation.x = -Math.PI/2; borde.position.set(HOLE.x, 0.004, HOLE.z); borde.receiveShadow = true; scene.add(borde);
+const hueco = new THREE.Mesh(new THREE.CircleGeometry(HOLE_R, 40), new THREE.MeshBasicMaterial({color: 0x0d0704}));
+hueco.rotation.x = -Math.PI/2; hueco.position.set(HOLE.x, 0.005, HOLE.z); scene.add(hueco);
+// El arroyuelo: aro de tiza blanca alrededor del hueco
+const ARROYUELO_R = 2.5;
+const arroyuelo = new THREE.Mesh(new THREE.RingGeometry(ARROYUELO_R - 0.05, ARROYUELO_R + 0.05, 120),
+  new THREE.MeshBasicMaterial({color: 0xf6f0e2, transparent: true, opacity: .8}));
+arroyuelo.rotation.x = -Math.PI/2; arroyuelo.position.set(HOLE.x, 0.004, HOLE.z); scene.add(arroyuelo);
+const marca = new THREE.Mesh(new THREE.OctahedronGeometry(0.16), new THREE.MeshLambertMaterial({color: 0xf5c518, emissive: 0x6b4f00}));
+marca.scale.set(1, 1.6, 1); marca.position.set(HOLE.x, 1.3, HOLE.z); scene.add(marca);
+
+// Árboles y piedras alrededor
+(function decorado(){
+  const tronco = new THREE.MeshLambertMaterial({color: 0x6b4a2e});
+  const hojas = [0x3f7d2c, 0x4f9a35, 0x2f6a2a].map(c => new THREE.MeshPhongMaterial({color: c, flatShading: true, shininess: 0}));
+  const piedra = new THREE.MeshPhongMaterial({color: 0x9a948a, flatShading: true, shininess: 4});
+  let semilla = 7; const rnd = () => (semilla = (semilla * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 70; i++){
+    const lado = rnd() < .5 ? -1 : 1;
+    const x = lado * (38 + rnd()*40), z = 40 - rnd()*170;
+    const h = 1.6 + rnd()*1.8;
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(.1, .16, h, 6), tronco);
+    t.position.set(x, h/2, z); t.castShadow = true; scene.add(t);
+    const copa = new THREE.Mesh(new THREE.IcosahedronGeometry(.9 + rnd()*.8, 0), hojas[i % 3]);
+    copa.position.set(x, h + .5, z); copa.castShadow = true; scene.add(copa);
+  }
+  for (let i = 0; i < 80; i++){
+    const lado = rnd() < .5 ? -1 : 1;
+    const p = new THREE.Mesh(new THREE.DodecahedronGeometry(.08 + rnd()*.25, 0), piedra);
+    p.position.set(lado * (36 + rnd()*12), .05, 25 - rnd()*135); p.rotation.set(rnd()*3, rnd()*3, 0);
+    p.castShadow = true; scene.add(p);
+  }
+})();
+
+// Línea de puntería
+const puntos = [];
+const matPunto = new THREE.MeshBasicMaterial({color: 0xffffff, transparent: true, opacity: .9});
+for (let i = 0; i < 16; i++){
+  const m = new THREE.Mesh(new THREE.CircleGeometry(0.03, 10), matPunto);
+  m.rotation.x = -Math.PI/2; m.visible = false; scene.add(m); puntos.push(m);
+}
+
+// ---------- Bolas ----------
+const geoBola = new THREE.SphereGeometry(R, 28, 20);
+const geoPetalo = new THREE.SphereGeometry(R * 0.8, 16, 10);
+// Texturas pintadas a mano en un canvas (equirectangular)
+const cacheTex = {};
+function pintarTextura(est){
+  if (cacheTex[est.id]) return cacheTex[est.id];
+  const w = 512, h = 256, c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  let semilla = [...est.id].reduce((a, ch) => a * 31 + ch.charCodeAt(0), 7) % 2147483647 || 1;
+  const rnd = () => (semilla = (semilla * 16807) % 2147483647) / 2147483647;
+  const remolino = (cols, grosor, alfa) => {
+    cols.forEach((col, i) => {
+      g.strokeStyle = col; g.globalAlpha = alfa; g.lineWidth = grosor * (0.7 + rnd() * 0.6); g.lineCap = 'round';
+      const base = h * (0.22 + 0.56 * (i + .5) / cols.length), fase = rnd() * 6.28, amp = h * (0.12 + rnd() * 0.12), k = 1 + Math.floor(rnd() * 2);
+      g.beginPath();
+      for (let x = -10; x <= w + 10; x += 4){ const y = base + Math.sin(x / w * Math.PI * 2 * k + fase) * amp; x < -9 ? g.moveTo(x, y) : g.lineTo(x, y); }
+      g.stroke();
+    });
+    g.globalAlpha = 1;
+  };
+  if (est.patron === 'perla'){
+    g.fillStyle = '#efe9f2'; g.fillRect(0, 0, w, h);
+    const cols = ['#ffc3e6', '#bff3ff', '#e0ccff', '#fff2b3', '#c8ffd9'];
+    for (let i = 0; i < 45; i++){
+      const x = rnd() * w, y = rnd() * h, rr = 30 + rnd() * 70, col = cols[i % cols.length];
+      [x - w, x, x + w].forEach(xx => { const gr = g.createRadialGradient(xx, y, 0, xx, y, rr); gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(xx - rr, y - rr, rr * 2, rr * 2); });
+    }
+  } else if (est.patron === 'galaxia'){
+    g.fillStyle = '#06102e'; g.fillRect(0, 0, w, h);
+    g.shadowColor = '#3fa0ff'; g.shadowBlur = 14;
+    remolino(['#1e5cff', '#2fd6ff', '#8a3dff', '#1e5cff'], 26, .75);
+    g.shadowBlur = 0;
+    for (let i = 0; i < 520; i++){ g.fillStyle = rnd() < .2 ? '#ffe9a8' : '#ffffff'; g.globalAlpha = .4 + rnd() * .6; const s2 = rnd() < .9 ? 1 : 2.5; g.fillRect(rnd() * w, rnd() * h, s2, s2); }
+    g.globalAlpha = 1;
+  } else if (est.patron === 'rayas'){
+    g.fillStyle = est.fondo; g.fillRect(0, 0, w, h);
+    g.fillStyle = est.bandas[0];
+    const n = 9;
+    for (let k = 0; k < n; k++){
+      const x0 = (k + .5) * w / n, f = rnd() * 6;
+      g.beginPath();
+      for (let y = 0; y <= h; y += 4){ const x = x0 + Math.sin(y / h * Math.PI * 2.5 + f) * 16 - (6 + 7 * Math.abs(Math.sin(y * .03 + f))); y ? g.lineTo(x, y) : g.moveTo(x, y); }
+      for (let y = h; y >= 0; y -= 4){ const x = x0 + Math.sin(y / h * Math.PI * 2.5 + f) * 16 + (6 + 7 * Math.abs(Math.sin(y * .03 + f))); g.lineTo(x, y); }
+      g.closePath(); g.fill();
+    }
+  } else {
+    g.fillStyle = est.fondo; g.fillRect(0, 0, w, h);
+    remolino(est.bandas, 30, 1);
+    remolino(['#ffffff'], 4, .55);
+  }
+  cacheTex[est.id] = c;
+  return c;
+}
+const cacheMat = {};
+function matOpaca(est){
+  if (!cacheMat[est.id]){
+    const t = new THREE.CanvasTexture(pintarTextura(est)); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4;
+    cacheMat[est.id] = new THREE.MeshPhysicalMaterial({map: t, roughness: .14, metalness: 0, clearcoat: 1, clearcoatRoughness: .04, envMapIntensity: 1.1});
+  }
+  return cacheMat[est.id];
+}
+const geoChispa = new THREE.SphereGeometry(R * 0.035, 6, 4);
+const geoBurbuja = new THREE.SphereGeometry(1, 10, 8);
+const matOroChispa = new THREE.MeshStandardMaterial({color: 0xffc933, metalness: 1, roughness: .25, emissive: 0x6a4300});
+const matBurbuja = new THREE.MeshPhysicalMaterial({color: 0xffffff, transparent: true, opacity: .45, roughness: 0, clearcoat: 1, envMapIntensity: 2});
+function puntoAdentro(rmax){
+  let x, y, z; do { x = Math.random() * 2 - 1; y = Math.random() * 2 - 1; z = Math.random() * 2 - 1; } while (x*x + y*y + z*z > 1);
+  return new V3(x, y, z).multiplyScalar(rmax);
+}
+function hacerBola(id){
+  const est = ESTILO[id] || ESTILOS[0];
+  const g = new THREE.Group();
+  if (est.tipo === 'opaca'){
+    const m = new THREE.Mesh(geoBola, matOpaca(est)); m.castShadow = true; g.add(m);
+  } else {
+    if (est.nucleo === 'petalos' || est.nucleo === 'hilo'){
+      const n = est.nucleo === 'hilo' ? 1 : 3;
+      for (let k = 0; k < n; k++){
+        const col = new THREE.Color(est.colores[k % est.colores.length]);
+        const p = new THREE.Mesh(geoPetalo, new THREE.MeshStandardMaterial({color: col, emissive: col.clone().multiplyScalar(.25), roughness: .4}));
+        p.scale.set(1, est.nucleo === 'hilo' ? .06 : .16, .42); p.rotation.y = k * Math.PI / 3; p.rotation.x = .3 * k;
+        g.add(p);
+      }
+    } else if (est.nucleo === 'burbujas'){
+      for (let k = 0; k < 16; k++){ const b = new THREE.Mesh(geoBurbuja, matBurbuja); b.scale.setScalar(R * (0.03 + Math.random() * 0.08)); b.position.copy(puntoAdentro(R * .8)); g.add(b); }
+    } else if (est.nucleo === 'oro'){
+      for (let k = 0; k < 60; k++){ const b = new THREE.Mesh(geoChispa, matOroChispa); b.position.copy(puntoAdentro(R * .85)); g.add(b); }
+    }
+    const vidrio = new THREE.Mesh(geoBola, new THREE.MeshPhysicalMaterial({color: est.tinte, transparent: true, opacity: est.opacidad, roughness: .02, metalness: 0, clearcoat: 1, clearcoatRoughness: .02, envMapIntensity: 1.6, depthWrite: false}));
+    vidrio.castShadow = true; vidrio.renderOrder = 2; g.add(vidrio);
+  }
+  scene.add(g);
+  return g;
+}
+// Ícono 2D de cada canica para los paneles
+const cacheIcono = {};
+function iconoURL(id){
+  if (cacheIcono[id]) return cacheIcono[id];
+  const est = ESTILO[id], c = document.createElement('canvas'); c.width = c.height = 96;
+  const g = c.getContext('2d');
+  g.save(); g.beginPath(); g.arc(48, 48, 44, 0, 7); g.clip();
+  if (est.tipo === 'opaca') g.drawImage(pintarTextura(est), 140, 30, 230, 196, 4, 4, 88, 88);
+  else {
+    const t = '#' + est.tinte.toString(16).padStart(6, '0');
+    const gr = g.createRadialGradient(40, 38, 4, 48, 48, 46); gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, t); g.fillStyle = gr; g.fillRect(0, 0, 96, 96);
+    if (est.nucleo === 'petalos' || est.nucleo === 'hilo'){
+      (est.nucleo === 'hilo' ? [0] : [0, 1, 2]).forEach(k => { g.save(); g.translate(48, 48); g.rotate(k * 1.05 - .5); g.fillStyle = est.colores[k % est.colores.length]; g.globalAlpha = .9; g.beginPath(); g.ellipse(0, 0, 32, est.nucleo === 'hilo' ? 3 : 8, 0, 0, 7); g.fill(); g.restore(); });
+    } else if (est.nucleo === 'burbujas'){
+      g.strokeStyle = 'rgba(255,255,255,.95)'; g.lineWidth = 1.5;
+      for (let k = 0; k < 14; k++){ g.beginPath(); g.arc(14 + Math.random() * 68, 14 + Math.random() * 68, 2 + Math.random() * 6, 0, 7); g.stroke(); }
+    } else if (est.nucleo === 'oro'){
+      g.fillStyle = '#f2b51f';
+      for (let k = 0; k < 70; k++){ g.fillRect(12 + Math.random() * 72, 12 + Math.random() * 72, 2, 2); }
+    }
+  }
+  let gr = g.createRadialGradient(48, 48, 26, 48, 48, 46); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.4)'); g.fillStyle = gr; g.fillRect(0, 0, 96, 96);
+  gr = g.createRadialGradient(34, 30, 0, 34, 30, 22); gr.addColorStop(0, 'rgba(255,255,255,.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 96, 96);
+  g.restore();
+  return cacheIcono[id] = c.toDataURL();
+}
+const geoAnillo = new THREE.RingGeometry(R * 1.2, R * 1.55, 32);
+function nuevaBolaFisica(mesh){
+  return {p: new V3(), v: new V3(), mesh, last: new V3(), activa: false, enMano: false, cayendo: false, caidaT: 0, enHueco: false, ignorarHueco: false};
+}
+
+// ---------- Sonido ----------
+let audio = null, sonido = true;
+const ganchos = {alChocar: null, trasRender: null, alIniciarRonda: null, alTiro: null, trasSubpaso: null, cuadroClasico: null, alResolver: null, alTerminar: null, alSalir: null};
+// Volúmenes independientes: música, efectos y narrador (0 a 1)
+const volumen = {musica: 0.35, efectos: 0.9, voz: 1};
+try { const v = JSON.parse(localStorage.getItem('chiras-volumen') || 'null'); if (v) ['musica', 'efectos', 'voz'].forEach(k => { if (typeof v[k] === 'number') volumen[k] = Math.max(0, Math.min(1, v[k])); }); } catch (e) {}
+function aplicarVolumen(){
+  if (audio && audio._efectos){ audio._efectos.gain.value = volumen.efectos; audio._musica.gain.value = volumen.musica; }
+  try { localStorage.setItem('chiras-volumen', JSON.stringify(volumen)); } catch (e) {}
+}
+function initAudio(){
+  try {
+    if (!audio){
+      audio = new (window.AudioContext || window.webkitAudioContext)();
+      // compresor para que muchos sonidos juntos no saturen
+      const comp = audio.createDynamicsCompressor();
+      comp.threshold.value = -14; comp.knee.value = 10; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.2;
+      comp.connect(audio.destination);
+      audio._efectos = audio.createGain(); audio._efectos.connect(comp);
+      audio._musica = audio.createGain(); audio._musica.connect(comp);
+      aplicarVolumen();
+    }
+    audio.resume && audio.resume();
+  } catch(e){ audio = null; }
+}
+function tono(freq, dur, vol, tipo){
+  if (!audio || !sonido) return;
+  const t = audio.currentTime, o = audio.createOscillator(), g = audio.createGain();
+  o.type = tipo || 'sine'; o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(audio._efectos || audio.destination); o.start(t); o.stop(t + dur + .02);
+}
+const sfx = {
+  choque: f => {
+    // no repetir choques casi al mismo tiempo (evita saturación)
+    if (!audio || f < 0.08 || audio.currentTime - (sfx._ultimo || 0) < 0.035) return;
+    sfx._ultimo = audio.currentTime;
+    const v = Math.min(.5, .05 + f * .12); tono(2900 + Math.random()*500 - Math.min(f, 8) * 120, .09, v); tono(4300, .05, v*.5);
+    if (f > 4) tono(600, .12, Math.min(.3, f * .03), 'triangle');
+  },
+  bote: f => tono(180, .12, Math.min(.3, f * .1), 'triangle'),
+  hueco: () => { tono(260, .18, .35, 'triangle'); setTimeout(() => tono(150, .25, .3, 'triangle'), 90); },
+  tiro: () => tono(900, .05, .12, 'square'),
+  poder: () => [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tono(f, .18, .2, 'triangle'), i * 90)),
+  canto: () => [440, 660].forEach((f, i) => setTimeout(() => tono(f, .16, .2, 'sawtooth'), i * 110)),
+  caza: () => [784, 587, 392].forEach((f, i) => setTimeout(() => tono(f, .2, .22, 'square'), i * 100))
+};
+
+// ---------- Estado ----------
+let estado = 'menu';       // menu | apuntar | rodando | fin
+let fase = 'salida';       // salida | juego
+let jugadores = [], orden = [], turno = 0, salidaIdx = 0;
+let metidos = new Set();   // bolas de otros que cayeron al hueco en el tiro
+let tirador = null, dirTiro = new V3(0, 0, -1), golpeados = new Set(), encholo = false, tiempoRodando = 0;
+let apunta = {ang: 0, fuerza: 0, arrastrando: false, x0: 0, y0: 0, ang0: 0};
+let ia = null, vistaAerea = false, seguir = null, esperaIA = 0, ventanaTotal = 0;
+let defensas = {ochera: new Set(), carambola: new Set()}, barreras = [];
+let nRivales = 2, nPersonas = 1, nombresPersonas = ['', '', '', ''];
+let defensor = null, colaDefensa = [], esperaCanto = 0, ultimoHumano = null;
+const variasPersonas = () => serie.filter(j => j.humano).length > 1;
+
+const dirDe = a => new V3(Math.sin(a), 0, -Math.cos(a));
+const velDeFuerza = f => 0.4 + Math.pow(f, CURVA) * (MAXV - 0.4);
+const angHacia = (desde, hasta) => Math.atan2(hasta.x - desde.x, -(hasta.z - desde.z));
+const distH = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+const enTierra = p => Math.abs(p.x) < CANCHA.x && p.z < CANCHA.zMax && p.z > CANCHA.zMin;
+const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 0.5;
+const vivos = () => jugadores.filter(j => j.vivo);
+
+// ---------- Física ----------
+function pasoBola(b, dt, sim){
+  if (b.cayendo){
+    b.caidaT += dt;
+    const k = Math.min(1, b.caidaT / 0.3);
+    b.p.x += (HOLE.x - b.p.x) * 0.25; b.p.z += (HOLE.z - b.p.z) * 0.25;
+    b.p.y = R - k * R * 1.1;
+    if (k >= 1){ b.cayendo = false; b.enHueco = true; b.v.set(0, 0, 0); }
+    return;
+  }
+  if (b.enHueco || b.enMano) return;
+  const aire = b.p.y > R + 0.0005 || b.v.y > 0;
+  if (aire) b.v.y -= G * dt;
+  b.p.addScaledVector(b.v, dt);
+  if (b.p.y <= R){
+    b.p.y = R;
+    if (b.v.y < -0.9){
+      const f = -b.v.y;
+      b.v.y = f * 0.32; b.v.x *= 0.72; b.v.z *= 0.72;
+      if (!sim) sfx.bote(f);
+    } else b.v.y = 0;
+  }
+  if (b.p.y <= R + 0.0005 && b.v.y === 0){
+    let s = Math.hypot(b.v.x, b.v.z);
+    if (!sim){
+      const dx = b.p.x - HOLE.x, dz = b.p.z - HOLE.z, dh = Math.hypot(dx, dz);
+      if (b.ignorarHueco && dh > HOLE_R + R) b.ignorarHueco = false;
+      const im = b.iman;   // ayuda para encholar (solo en batalla, si se activa)
+      if (!b.ignorarHueco && dh < HOLE_R + R * 0.5 + (im ? im.radio : 0)){
+        if (dh < HOLE_R - R * 0.15 && s < (im ? im.velCaptura : 3.0)){
+          b.cayendo = true; b.caidaT = 0; b.v.set(0, 0, 0);
+          if (tirador && b === tirador.bola) encholo = true;
+          else if (tirador && b.dueno) metidos.add(b.dueno);   // otra bola que se fue al hueco en este tiro
+          sfx.hueco();
+          return;
+        } else if (s < (im ? im.velJalon : 1.6) && dh > 0.001){
+          // la orilla del hueco jala la bola hacia adentro (más fuerte con el imán)
+          const fz = im ? im.fuerza : 2.2;
+          b.v.x -= dx / dh * fz * dt; b.v.z -= dz / dh * fz * dt;
+          if (im){
+            // el imán también frena el movimiento de lado, para que la bola se curve hacia adentro y no pase de largo
+            const ux = -dx / dh, uz = -dz / dh, vr = b.v.x * ux + b.v.z * uz;
+            const k = 1 - Math.exp(-im.amortiguar * dt);
+            b.v.x -= (b.v.x - vr * ux) * k; b.v.z -= (b.v.z - vr * uz) * k;
+          }
+          s = Math.hypot(b.v.x, b.v.z);
+        }
+      }
+    }
+    if (s > 0){
+      const ns = Math.max(0, s - (enTierra(b.p) ? DECEL_DIRT : DECEL_GRASS) * (b.freno || 1) * dt);
+      const k = ns / s; b.v.x *= k; b.v.z *= k;
+      if (ns < 0.01){ b.v.x = 0; b.v.z = 0; }
+    }
+  }
+  // paredes invisibles lejanas
+  if (b.p.x < -60 || b.p.x > 60){ b.p.x = Math.max(-60, Math.min(60, b.p.x)); b.v.x *= -0.4; }
+  if (b.p.z < -150 || b.p.z > 50){ b.p.z = Math.max(-150, Math.min(50, b.p.z)); b.v.z *= -0.4; }
+}
+
+function choques(){
+  const bs = jugadores.filter(j => j.vivo && j.bola.activa && !j.bola.enMano && !j.bola.cayendo).map(j => j.bola);
+  for (let i = 0; i < bs.length; i++) for (let k = i + 1; k < bs.length; k++){
+    const a = bs[i], b = bs[k];
+    const n = a.p.clone().sub(b.p); const d = n.length();
+    if (d >= 2 * R || d < 1e-6) continue;
+    n.divideScalar(d);
+    const solape = 2 * R - d;
+    if (!a.enHueco) a.p.addScaledVector(n, solape / 2);
+    if (!b.enHueco) b.p.addScaledVector(n, -solape / 2);
+    const vn = a.v.clone().sub(b.v).dot(n);
+    if (vn >= 0) continue;
+    const va = a.v.length(), vb = b.v.length();
+    const j = -(1 + 0.9) * vn / 2;
+    a.v.addScaledVector(n, j); b.v.addScaledVector(n, -j);
+    if (a.enHueco){ a.enHueco = false; a.ignorarHueco = true; a.p.y = R; }
+    if (b.enHueco){ b.enHueco = false; b.ignorarHueco = true; b.p.y = R; }
+    a.p.y = Math.max(a.p.y, R); b.p.y = Math.max(b.p.y, R);
+    sfx.choque(-vn);
+    if (ganchos.alChocar) ganchos.alChocar(a, b, -vn, va, vb);
+    if (tirador){
+      if (a === tirador.bola) golpeados.add(b.dueno);
+      if (b === tirador.bola) golpeados.add(a.dueno);
+    }
+  }
+}
+
+// Simula una sola bola (sin choques ni hueco) para que la máquina calcule su fuerza
+function simular(desde, ang, vel, globo){
+  const b = {p: desde.clone(), v: new V3(), enMano: false, cayendo: false, enHueco: false};
+  ponerVelocidad(b, ang, vel, globo);
+  for (let i = 0; i < 1500; i++){
+    pasoBola(b, 1/60, true);
+    if (b.p.y <= R + 0.0005 && b.v.lengthSq() < 1e-6) break;
+  }
+  return b.p;
+}
+function velocidadPara(desde, ang, distObjetivo, globo){
+  let lo = 0.2, hi = MAXV;
+  const d = dirDe(ang);
+  for (let i = 0; i < 18; i++){
+    const mid = (lo + hi) / 2;
+    const fin = simular(desde, ang, mid, globo);
+    const recorrido = fin.clone().sub(desde).dot(d);
+    if (recorrido < distObjetivo) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+function ponerVelocidad(b, ang, vel, globo){
+  const d = dirDe(ang);
+  if (globo) b.v.set(d.x * vel * 0.8, vel * 0.35, d.z * vel * 0.8);
+  else b.v.set(d.x * vel, 0, d.z * vel);
+}
+
+// ---------- Flujo del juego ----------
+let serie = [];
+function bolsaInicial(){
+  // más probable sacar canicas baratas
+  const pesosE = ESTILOS.map(e => 1 / Math.pow(e.valor, 0.9)), tot = pesosE.reduce((a, b) => a + b, 0);
+  const b = [];
+  for (let i = 0; i < 6; i++){ let x = Math.random() * tot, k = 0; while (x > pesosE[k]) x -= pesosE[k++]; b.push(ESTILOS[Math.min(k, ESTILOS.length - 1)].id); }
+  return b;
+}
+function nuevaSerie(){
+  serie = [];
+  for (let i = 0; i < nPersonas; i++){
+    const nom = (nombresPersonas[i] || '').trim() || (nPersonas === 1 ? 'Usted' : `Jugador ${i + 1}`);
+    serie.push({nombre: nom, color: COLORES[i], ia: location.hash === '#prueba', humano: true, bolsa: bolsaInicial(), bola: null});
+  }
+  for (let k = 0; k < nRivales; k++){
+    serie.push({nombre: NOMBRES_IA[k], color: COLORES[nPersonas + k], ia: true, humano: false, bolsa: bolsaInicial(), bola: null});
+  }
+  ultimoHumano = null;
+  mostrarEscoger();
+}
+const valorBolsa = j => j.bolsa.reduce((a, id) => a + ESTILO[id].valor, 0);
+function agrupar(bolsa){
+  const m = {}; bolsa.forEach(id => m[id] = (m[id] || 0) + 1);
+  return Object.keys(m).sort((a, b) => ESTILO[b].valor - ESTILO[a].valor).map(id => ({id, n: m[id]}));
+}
+function pintarBolsa(cont, j, alEscoger){
+  cont.innerHTML = '';
+  agrupar(j.bolsa).forEach(({id, n}) => {
+    const est = ESTILO[id];
+    const el = document.createElement(alEscoger ? 'button' : 'div');
+    el.className = 'item';
+    if (alEscoger){ el.type = 'button'; el.addEventListener('click', () => alEscoger(id)); }
+    el.innerHTML = `<img alt="" src="${iconoURL(id)}"><span class="n">x${n}</span><span class="nom">${est.nombre}</span><span class="val">${pesos(est.valor)} · ${rareza(est.valor)}</span>`;
+    cont.appendChild(el);
+  });
+}
+function mostrarEscoger(i = 0){
+  const hs = serie.filter(j => j.humano && j.bolsa.length > 0);
+  if (i >= hs.length){ initAudio(); nuevaPartida(); return; }
+  const h = hs[i];
+  $('#menu').hidden = true; $('#fin').hidden = true; $('#escoger').hidden = false;
+  $('#escogerTitulo').textContent = hs.length > 1 ? `${h.nombre}, escoja su bola` : 'Escoja su bola';
+  $('#escogerTxt').textContent = `Tiene ${h.bolsa.length} canicas (${pesos(valorBolsa(h))}). La que juegue es la que se arriesga.`;
+  pintarBolsa($('#escogerLista'), h, id => { h.eleccion = id; mostrarEscoger(i + 1); });
+  $('#escoger').scrollTop = 0;
+}
+function nuevaPartida(){
+  jugadores.forEach(j => { scene.remove(j.bola.mesh); if (j.bola.anillo) scene.remove(j.bola.anillo); });
+  jugadores = serie.filter(j => j.bolsa.length > 0);
+  jugadores.forEach(j => {
+    j.juega = j.humano && j.eleccion && j.bolsa.includes(j.eleccion) ? j.eleccion : j.bolsa[Math.floor(Math.random() * j.bolsa.length)];
+    const mesh = hacerBola(j.juega);
+    const bola = nuevaBolaFisica(mesh);
+    bola.anillo = new THREE.Mesh(geoAnillo, new THREE.MeshBasicMaterial({color: j.color, transparent: true, opacity: .9}));
+    bola.anillo.rotation.x = -Math.PI / 2; bola.anillo.visible = false; scene.add(bola.anillo);
+    bola.dueno = j; mesh.visible = false;
+    Object.assign(j, {bola, vivo: true, poder: false, cantos: {barrera: 1, desquadris: 1, ochera: 1, carambola: 1, arena: 1, viento: 1}, nada: false, nadaTurno: false});
+  });
+  $('#escoger').hidden = true; $('#bolsaCapa').hidden = true;
+  limpiarDefensas(); colaAvisos.length = 0;
+  fase = 'salida'; salidaIdx = 0; vistaAerea = false; actualizarBotonVista();
+  $('#menu').hidden = true; $('#fin').hidden = true;
+  actualizarHUD();
+  ['#hud', '#fuerza', '#pista', '#botones'].forEach(s => $(s).hidden = false);
+  construirBarra();
+  aviso('¡Salida! Todos a la raya');
+  if (ganchos.alIniciarRonda) ganchos.alIniciarRonda();
+  setTimeout(turnoSalida, 900);
+  estado = 'espera';
+}
+
+function turnoSalida(){
+  if (estado === 'menu') return;
+  const j = jugadores[salidaIdx];
+  tirador = j;
+  const b = j.bola;
+  b.activa = true; b.enMano = true; b.mesh.visible = true;
+  b.p.set(-1.2 + salidaIdx * 0.8, 1.05, 0.35); b.v.set(0, 0, 0); b.last.copy(b.p);
+  apunta.ang = angHacia(b.p, HOLE); apunta.fuerza = 0;
+  empezarApuntar();
+}
+
+function terminarSalida(){
+  if (estado === 'menu') return;
+  orden = jugadores.slice().sort((a, b) => (a.poder ? -1 : distH(a.bola.p, HOLE)) - (b.poder ? -1 : distH(b.bola.p, HOLE)));
+  fase = 'juego'; turno = 0;
+  const p = orden[0];
+  aviso(`Empieza ${p.nombre}`);
+  setTimeout(turnoJuego, 1200);
+  estado = 'espera';
+}
+
+function turnoJuego(){
+  if (estado === 'menu') return;
+  const j = orden[turno];
+  tirador = j;
+  // Nada de nada dura un solo tiro: en cada tiro nuevo (aunque sea el mismo jugador repitiendo) se vuelve a cantar
+  const b = j.bola;
+  if (b.enHueco){ b.enHueco = false; b.p.set(HOLE.x, R, HOLE.z); b.ignorarHueco = true; }
+  if (j.poder){
+    const presa = presaMasCercana(j);
+    apunta.ang = presa ? angHacia(b.p, presa.bola.p) : angHacia(b.p, HOLE);
+  } else apunta.ang = distH(b.p, HOLE) < 0.05 ? 0 : angHacia(b.p, HOLE);
+  apunta.fuerza = 0;
+  let cantaron = false;
+  const idEste = ++idTurno;
+  if (j.poder){
+    if (j.ia){
+      if (presaMasCercana(j) && Math.random() < 0.5){
+        if (hayPersonaQuePuedaCantar(j)) setTimeout(() => { if (idEste === idTurno && estado === 'apuntar' && tirador === j) aplicarNada(j); }, 600 + Math.random() * 1200);
+        else aplicarNada(j);
+      }
+      cantaron = cantosIA(j);
+    } else setTimeout(() => { if (idEste === idTurno && estado === 'apuntar' && tirador === j && cantosIA(j)) actualizarHUD(); }, 1200);
+  }
+  empezarApuntar(cantaron);
+}
+let idTurno = 0;
+function hayPersonaQuePuedaCantar(t){
+  t = t || tirador;
+  return jugadores.some(h => h.humano && !h.ia && h.vivo && h !== t);
+}
+// ---------- Barra fija de poderes ----------
+const BARRA = [['barrera', '🛡️', 'Barrera'], ['desquadris', '🔄', 'Desquadris'], ['ochera', '🕳️', 'Ochera'], ['carambola', '💥', 'Carambola'], ['arena', '🌀', 'Arena'], ['viento', '🌪️', 'Viento'], ['nada', '🚫', 'Nada']];
+// Los poderes se pueden usar en cualquier momento de la partida (aunque nadie le esté tirando y aunque las bolas rueden)
+const enPartida = () => ['apuntar', 'rodando', 'espera'].includes(estado) && jugadores.length > 0;
+function referencia(d){
+  // contra quién se defiende: el que está tirando; si es él mismo, el rival con poder más cercano (o el más cercano)
+  if (tirador && tirador !== d && tirador.vivo && tirador.bola.activa && !tirador.bola.enMano) return tirador;
+  const otros = jugadores.filter(o => o !== d && o.vivo && o.bola.activa && !o.bola.enMano);
+  const cerca = l => l.sort((a, b) => distH(a.bola.p, d.bola.p) - distH(b.bola.p, d.bola.p))[0] || null;
+  return cerca(otros.filter(o => o.poder)) || cerca(otros);
+}
+function puedeCantar(h, k){
+  if (!enPartida() || !h.vivo || !(h.cantos[k] > 0) || h.nada || !h.bola.activa || h.bola.enMano || h.bola.cayendo) return false;
+  if ((k === 'barrera' || k === 'desquadris') && !referencia(h)) return false;
+  return true;
+}
+function puedeNada(h){
+  // en cualquier momento, cualquiera lo puede cantar. Gana el primero; dura hasta que termine el tiro que viene.
+  return enPartida() && h.vivo && !nadaDe && !h.nada && jugadores.some(r => r !== h && r.vivo);
+}
+// Desquadris con un toque: se corre hacia el lado que la aleja de la puntería del que tira
+function ladoAuto(h){
+  const ref = referencia(h); if (!ref) return 1;
+  const c = ref.bola.p, b = h.bola.p;
+  const a0 = Math.atan2(b.x - c.x, b.z - c.z);
+  const d = (ref !== tirador || tirador.ia) ? new V3(b.x - c.x, 0, b.z - c.z) : dirDe(apunta.ang);
+  let dif = a0 - Math.atan2(d.x, d.z); dif = Math.atan2(Math.sin(dif), Math.cos(dif));
+  return dif >= 0 ? 1 : -1;
+}
+function tocarPoder(h, k){
+  if (k === 'nada'){ if (puedeNada(h) && aplicarNada(h)){ try { navigator.vibrate && navigator.vibrate(60); } catch (e) {} } return; }
+  if (!puedeCantar(h, k)) return;
+  if (usarCanto(h, k, k === 'desquadris' ? ladoAuto(h) : 1)){ try { navigator.vibrate && navigator.vibrate(30); } catch (e) {} }
+}
+function construirBarra(){
+  const cont = $('#barraPod'); cont.innerHTML = '';
+  const personas = jugadores.filter(j => j.humano && !j.ia);
+  personas.forEach(h => {
+    const fila = document.createElement('div'); fila.className = 'filaPod'; fila.style.setProperty('--c', hex(h.color));
+    const q = document.createElement('span'); q.className = 'quien'; q.textContent = h.nombre; fila.appendChild(q);
+    h.botonesPod = {};
+    BARRA.forEach(([k, ic, nm]) => {
+      const b = document.createElement('button'); b.type = 'button'; if (k === 'nada') b.className = 'nada';
+      b.setAttribute('aria-label', k === 'nada' ? 'Nada de nada' : CANTOS[k]);
+      b.innerHTML = `<span class="ic">${ic}</span><span class="nm">${nm}</span>`;
+      b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); tocarPoder(h, k); });
+      fila.appendChild(b); h.botonesPod[k] = b;
+    });
+    cont.appendChild(fila);
+  });
+  cont.hidden = !personas.length;
+}
+function pintarBarra(){
+  jugadores.forEach(h => {
+    if (!h.botonesPod) return;
+    BARRA.forEach(([k]) => {
+      const b = h.botonesPod[k];
+      let estadoB;
+      if (k === 'nada') estadoB = puedeNada(h) ? 'listo' : nadaDe === h ? 'usado' : h.nada ? 'anulado' : '';
+      else if (h.nada) estadoB = 'anulado';
+      else if (puedeCantar(h, k)) estadoB = 'listo';
+      else if (!(h.cantos[k] > 0)) estadoB = 'usado';
+      else estadoB = '';
+      if (b.dataset.e !== estadoB){ b.dataset.e = estadoB; b.classList.remove('listo', 'usado', 'anulado'); if (estadoB) b.classList.add(estadoB); }
+    });
+  });
+}
+// en computador: teclas 1 a 5 para los cantos y N para Nada de nada (primera persona)
+addEventListener('keydown', e => {
+  if (estado === 'menu' || !jugadores.length) return;
+  const h = jugadores.find(j => j.humano && !j.ia); if (!h) return;
+  const i = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6'].indexOf(e.code);
+  if (i >= 0) tocarPoder(h, BARRA[i][0]);
+});
+// NADA DE NADA: el que tiene el poder y va a tirar les anula los cantos a todos los demás en este turno
+// (lo que ya habían cantado antes se queda)
+// NADA DE NADA (dura un solo tiro; gana el primero que lo cante):
+//  - Se puede cantar en cualquier momento. El primero que lo cante les anula los poderes a todos los demás
+//    (también su Nada de nada) hasta que termine el tiro que viene o el que está rodando.
+let nadaDe = null;
+function aplicarNada(por){
+  if (!por || !por.vivo || !enPartida() || nadaDe || por.nada) return false;
+  const otros = jugadores.filter(r => r !== por && r.vivo);
+  if (!otros.length) return false;
+  nadaDe = por; por.nadaTurno = true;
+  otros.forEach(r => { r.nada = true; });
+  aviso(`${por.nombre}: ¡Nada de nada!\nNadie más puede usar poderes hasta que termine el tiro`);
+  sfx.canto();
+  if (window.ChirasAudio){ window.ChirasAudio.voz('nada'); window.ChirasAudio.sfx.nada(); }
+  if (defensor) abrirVentana();
+  actualizarHUD();
+  return true;
+}
+
+function empezarApuntar(cantaron){
+  estado = 'apuntar'; ia = null; seguir = tirador.bola;
+  if (tirador.ia) esperaIA = cantaron ? 1.6 : 0.01;
+  // si alguna persona puede cantar, la máquina le da un momento para reaccionar (agilidad)
+  if (tirador.ia && fase === 'juego' && tirador.poder && hayPersonaQuePuedaCantar()) esperaIA = Math.max(esperaIA, 2.6);
+  if (variasPersonas() && !tirador.ia && tirador !== ultimoHumano) aviso(`Le toca a ${tirador.nombre}`);
+  if (!tirador.ia) ultimoHumano = tirador;
+  // las personas amenazadas pueden cantar antes del tiro, una por una
+  // (antes salía una ventanita para cantar; ahora los cantos están siempre en la barra de poderes)
+  colaDefensa = [];
+  siguienteDefensor();
+  actualizarHUD();
+}
+function siguienteDefensor(){
+  defensor = colaDefensa.shift() || null;
+  if (defensor){ esperaCanto = ventanaTotal = variasPersonas() ? 5 : 3.5; abrirVentana(); }
+  else { cerrarVentana(); if (!tirador.ia) terminarMovimientos(); }
+  actualizarHUD();
+}
+
+// ---------- Cantos ----------
+function usarCanto(d, k, lado){
+  if (!(d.cantos[k] > 0) || !d.vivo || !d.bola.activa) return false;
+  if (d.nada && CANTOS_DEFENSIVOS.includes(k)) return false;   // le hicieron Nada de nada
+  if ((k === 'barrera' || k === 'desquadris') && !referencia(d)) return false;
+  d.cantos[k]--;
+  if (window.ChirasAudio) window.ChirasAudio.voz('canto', `¡${CANTOS[k]}!`);
+  if (k === 'barrera') ponerBarrera(d);
+  else if (k === 'desquadris') desquadris(d, lado || 1);
+  else if (k === 'arena') ponerArena(d);
+  else if (k === 'viento') ponerViento(d);
+  else defensas[k].add(d);
+  aviso(`${d.nombre}: ¡${CANTOS[k]}!`);
+  sfx.canto();
+  actualizarHUD();
+  return true;
+}
+function cantosIA(tir){
+  const presa = presaMasCercana(tir);
+  let alguno = false;
+  vivos().forEach(d => {
+    if (d === tir || !d.ia) return;
+    const dist = distH(d.bola.p, tir.bola.p);
+    if (!(d === presa || dist < 3) || Math.random() > 0.5) return;
+    if (!nadaDe && !d.nada && Math.random() < 0.3 && aplicarNada(d)) alguno = true;
+    const quedan = Object.keys(d.cantos).filter(k => d.cantos[k] && !(d.nada && CANTOS_DEFENSIVOS.includes(k)));
+    if (!quedan.length) return;
+    const vecino = vivos().some(o => o !== d && o !== tir && distH(o.bola.p, d.bola.p) < 1.2);
+    let k;
+    if (vecino && d.cantos.carambola) k = 'carambola';
+    else if (distH(d.bola.p, HOLE) < 2.5 && d.cantos.ochera) k = 'ochera';
+    else k = quedan[Math.floor(Math.random() * quedan.length)];
+    if (usarCanto(d, k, Math.random() < .5 ? 1 : -1)) alguno = true;
+  });
+  return alguno;
+}
+const matBarrera = new THREE.MeshLambertMaterial({color: 0x8a5a2b});
+const geoBarrera = new THREE.BoxGeometry(BAR_L, 0.16, 0.07);
+function ponerBarrera(d){
+  const c = referencia(d).bola.p, b = d.bola.p;
+  let dx = c.x - b.x, dz = c.z - b.z; const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
+  const off = Math.min(0.45, L * 0.5);
+  const cx = b.x + dx * off, cz = b.z + dz * off;
+  const mesh = new THREE.Mesh(geoBarrera, matBarrera);
+  mesh.position.set(cx, 0.08, cz); mesh.rotation.y = Math.atan2(dx, dz);
+  mesh.castShadow = true; mesh.receiveShadow = true; scene.add(mesh);
+  barreras.push({cx, cz, ux: dz, uz: -dx, mesh});
+}
+function chocarBarreras(b){
+  if (b.enMano || b.cayendo || b.enHueco || b.p.y > 0.16 + R) return;
+  barreras.forEach(w => {
+    const dx = b.p.x - w.cx, dz = b.p.z - w.cz;
+    const u = Math.max(-BAR_L / 2, Math.min(BAR_L / 2, dx * w.ux + dz * w.uz));
+    const vx = dx - w.ux * u, vz = dz - w.uz * u, d = Math.hypot(vx, vz);
+    const lim = R + 0.035;
+    if (d >= lim || d < 1e-6) return;
+    const nx = vx / d, nz = vz / d;
+    b.p.x += nx * (lim - d); b.p.z += nz * (lim - d);
+    const vn = b.v.x * nx + b.v.z * nz;
+    if (vn < 0){ b.v.x -= 1.5 * vn * nx; b.v.z -= 1.5 * vn * nz; sfx.bote(-vn * 2); }
+  });
+}
+// Desquadris: mover la bola una cuarta de lado, a la misma distancia del que va a tirar
+function desquadris(d, lado){
+  const c = referencia(d).bola.p, b = d.bola;
+  const r = distH(b.p, c); if (r < 0.05) return;
+  const a0 = Math.atan2(b.p.x - c.x, b.p.z - c.z);
+  for (const sg of [lado, -lado]){
+    const a = a0 + sg * CUARTA / r;
+    const nx = c.x + Math.sin(a) * r, nz = c.z + Math.cos(a) * r;
+    if (Math.hypot(nx - HOLE.x, nz - HOLE.z) > HOLE_R + R + 0.05){
+      if (b.enHueco){ b.enHueco = false; b.ignorarHueco = true; }
+      b.desde = b.p.clone(); b.desde.y = R; b.hacia = new V3(nx, R, nz); b.tw = 0;
+      return;
+    }
+  }
+}
+function terminarMovimientos(){
+  jugadores.forEach(j => { const b = j.bola; if (b.hacia){ b.p.copy(b.hacia); b.hacia = null; } });
+}
+// ---------- Arena movediza ----------
+// Un remolino de arena alrededor de la bola del que la canta. Si la bola del que tira entra
+// (viniendo de afuera), la arena se la traga y la escupe lejos de todos.
+const ARENA_R = 0.75;
+let arenas = [];
+const texArena = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  const gr = g.createRadialGradient(64, 64, 4, 64, 64, 64); gr.addColorStop(0, 'rgba(45,25,10,.95)'); gr.addColorStop(.75, 'rgba(120,80,40,.75)'); gr.addColorStop(1, 'rgba(150,100,60,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+  g.strokeStyle = 'rgba(235,200,140,.6)'; g.lineWidth = 3;
+  for (let a = 0; a < 3; a++){ g.beginPath(); for (let t = 0; t < 40; t++){ const r = t * 1.4, th = t * 0.35 + a * 2.1; g.lineTo(64 + Math.cos(th) * r, 64 + Math.sin(th) * r); } g.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; return t;
+})();
+const geoArena = new THREE.CircleGeometry(ARENA_R, 40);
+function ponerArena(d){
+  const mesh = new THREE.Mesh(geoArena, new THREE.MeshBasicMaterial({map: texArena, transparent: true, depthWrite: false}));
+  mesh.rotation.x = -Math.PI / 2; mesh.position.set(d.bola.p.x, 0.013, d.bola.p.z); scene.add(mesh);
+  const dentro = !!(tirador && tirador !== d && estado === 'rodando' && distH(tirador.bola.p, d.bola.p) < ARENA_R);
+  arenas.push({d, x: d.bola.p.x, z: d.bola.p.z, mesh, dentroAlTirar: dentro, usada: false});
+  if (window.ChirasAudio) window.ChirasAudio.voz('movediza');
+}
+function lugarRetirado(){
+  // el punto de la cancha más lejos de todas las bolas (y no en el hueco)
+  let mejor = null, md = -1;
+  for (let i = 0; i < 60; i++){
+    const p = new V3((Math.random() * 2 - 1) * (CANCHA.x - 4), R, CANCHA.zMin * 0.75 + Math.random() * (CANCHA.zMax - 4 - CANCHA.zMin * 0.75));
+    if (distH(p, HOLE) < 3) continue;
+    const d = Math.min(...jugadores.filter(j => j.vivo && j.bola.activa && j !== tirador).map(j => distH(j.bola.p, p)), 999);
+    if (d > md){ md = d; mejor = p; }
+  }
+  return mejor || new V3(CANCHA.x - 5, R, CANCHA.zMin + 10);
+}
+function revisarArenas(){
+  if (!arenas.length || !tirador || estado !== 'rodando') return;
+  const b = tirador.bola;
+  if (!b.activa || b.enMano || b.cayendo || b.enHueco || b.p.y > R + 0.08) return;
+  for (const a of arenas){
+    if (a.usada || a.dentroAlTirar || a.d === tirador || !a.d.vivo) continue;
+    if (Math.hypot(b.p.x - a.x, b.p.z - a.z) < ARENA_R){
+      a.usada = true;
+      const desde = b.p.clone(), destino = lugarRetirado();
+      b.p.copy(destino); b.v.set(0, 0, 0); b.last.copy(b.p); b.ignorarHueco = false;
+      aviso(`¡Arena movediza!\nLa arena se tragó la bola de ${tirador.nombre} y la escupió lejos`);
+      if (window.ChirasAudio){ window.ChirasAudio.sfx.teleport(); window.ChirasAudio.sfx.aplastar(); }
+      if (ganchos.alArena) ganchos.alArena(desde, destino, a.d);
+      seguir = b;
+      break;
+    }
+  }
+}
+// ---------- Viento / Tornado ----------
+// Lo canta alguien y sopla fuerte en el siguiente tiro de otro jugador (o en el que va rodando):
+// las bolas en movimiento se desvían hacia un lado.
+const VIENTO = {acel: 0.7, dur: 3.2};   // fuerza del viento y cuánto dura (segundos)
+let viento = null;   // {por, activo, dir, t}
+function ponerViento(d){
+  viento = {por: d, activo: false, dir: new V3(), t: 0};
+  if (estado === 'rodando' && tirador && tirador !== d) activarViento();
+  if (window.ChirasAudio) window.ChirasAudio.voz('viento', '¡Tornado! ¡Viento!');
+}
+function activarViento(){
+  // sopla de lado respecto al tiro (con algo de azar), para desviarlo
+  const lado = Math.random() < 0.5 ? 1 : -1;
+  const a = Math.atan2(dirTiro.x, dirTiro.z) + lado * (Math.PI / 2) + (Math.random() - 0.5) * 0.6;
+  viento.dir.set(Math.sin(a), 0, Math.cos(a)); viento.activo = true; viento.t = 0;
+  if (ganchos.alViento) ganchos.alViento(viento);
+}
+function soplarViento(h){
+  if (!viento || !viento.activo) return;
+  viento.t += h;
+  if (viento.t > VIENTO.dur){ viento = null; return; }
+  jugadores.forEach(j => {
+    const b = j.bola;
+    if (!j.vivo || !b.activa || b.enMano || b.enHueco || b.cayendo) return;
+    if (Math.hypot(b.v.x, b.v.z) < 0.05 && b.p.y <= R + 0.001) return;   // solo mueve las que van rodando o en el aire
+    const f = b.p.y > R + 0.01 ? 1.6 : 1;   // en el aire la desvía más
+    b.v.x += viento.dir.x * VIENTO.acel * f * h; b.v.z += viento.dir.z * VIENTO.acel * f * h;
+  });
+}
+function limpiarDefensas(){
+  nadaDe = null;
+  barreras.forEach(w => scene.remove(w.mesh)); barreras = [];
+  defensas.ochera.clear(); defensas.carambola.clear();
+  jugadores.forEach(j => { j.nada = false; j.nadaTurno = false; j.cantos = {barrera: 1, desquadris: 1, ochera: 1, carambola: 1, arena: 1, viento: 1}; });
+  arenas.forEach(a => scene.remove(a.mesh)); arenas = [];
+  defensor = null; colaDefensa = [];
+  cerrarVentana();
+}
+function abrirVentana(){
+  const h = defensor; if (!h) return;
+  $('#cantos').hidden = false; $('#ladoDesq').hidden = true; $('#btnNoCanto').hidden = false;
+  $('#cantosTitulo').textContent = variasPersonas()
+    ? `${h.nombre}: ${tirador.nombre} tiene el poder. ¿Canta algo?`
+    : `${tirador.nombre} tiene el poder. ¿Canta algo?`;
+  document.querySelectorAll('#cantoBtns button').forEach(bt => {
+    const n = h.cantos[bt.dataset.k] || 0, anulado = h.nada && CANTOS_DEFENSIVOS.includes(bt.dataset.k);
+    bt.disabled = !n || anulado; bt.textContent = (anulado ? '🚫 ' : '') + CANTOS[bt.dataset.k] + (n > 1 ? ` ×${n}` : '');
+  });
+}
+function cerrarVentana(){ $('#cantos').hidden = true; }
+
+function presaMasCercana(j){
+  let mejor = null, md = 1e9;
+  vivos().forEach(o => { if (o === j || !o.bola.activa) return; const d = distH(o.bola.p, j.bola.p); if (d < md){ md = d; mejor = o; } });
+  return mejor;
+}
+
+function tirar(ang, fuerza){
+  terminarMovimientos(); cerrarVentana();
+  const b = tirador.bola;
+  const vel = velDeFuerza(fuerza);
+  dirTiro = dirDe(ang);
+  if (viento && !viento.activo && tirador !== viento.por) activarViento();
+  golpeados = new Set(); metidos = new Set(); encholo = false; tiempoRodando = 0;
+  arenas.forEach(a => { a.dentroAlTirar = Math.hypot(tirador.bola.p.x - a.x, tirador.bola.p.z - a.z) < ARENA_R; });
+  if (fase === 'salida'){ b.enMano = false; ponerVelocidad(b, ang, vel, true); }
+  else { b.p.y = R; ponerVelocidad(b, ang, vel, false); }
+  apunta.fuerza = 0; ocultarPuntos();
+  estado = 'rodando'; seguir = b;
+  sfx.tiro();
+  if (ganchos.alTiro) ganchos.alTiro(b, fuerza, tirador);
+  actualizarHUD();
+}
+
+function todoQuieto(){
+  return jugadores.every(j => {
+    const b = j.bola;
+    if (!j.vivo || !b.activa || b.enMano || b.enHueco) return !b.cayendo;
+    return !b.cayendo && b.p.y <= R + 0.001 && b.v.lengthSq() < 1e-5;
+  });
+}
+
+function sacarDelHueco(b){
+  const a = Math.random() * Math.PI * 2;
+  b.enHueco = false; b.ignorarHueco = true;
+  b.p.set(HOLE.x + Math.sin(a) * (HOLE_R + R + .03), R, HOLE.z + Math.cos(a) * (HOLE_R + R + .03));
+}
+
+function resolverTiro(){
+  const s = tirador;
+  // se acabó este tiro: se acaba el Nada de nada y hay que volver a cantarlo
+  nadaDe = null; jugadores.forEach(x => { x.nada = false; x.nadaTurno = false; });
+  if (viento && viento.activo) viento = null;   // el viento se acaba con el tiro que desvió
+  jugadores.forEach(j => { if (j !== s && j.bola.enHueco) sacarDelHueco(j.bola); });
+
+  if (fase === 'salida'){
+    if (encholo){
+      // El que enchola gana el poder y sigue tirando: se acaba la salida.
+      s.poder = true; aviso(`¡${s.nombre} encholó en la salida!\nTiene el poder y sigue tirando`); sfx.poder();
+      if (ganchos.alResolver) ganchos.alResolver({tirador: s, victimas: [], encholo: true, salida: true});
+      // Los que no alcanzaron a lanzar quedan con su bola en la raya.
+      for (let k = salidaIdx + 1; k < jugadores.length; k++){
+        const b = jugadores[k].bola;
+        b.activa = true; b.enMano = false; b.mesh.visible = true;
+        b.p.set(-1.2 + k * 0.8, R, 0.35); b.v.set(0, 0, 0); b.last.copy(b.p);
+      }
+      salidaIdx = jugadores.length;
+    } else salidaIdx++;
+    actualizarHUD();
+    estado = 'espera';
+    setTimeout(() => salidaIdx < jugadores.length ? turnoSalida() : terminarSalida(), encholo ? 1400 : 700);
+    return;
+  }
+
+  let otraVez = false; const msgs = [];
+  const victimas = [...golpeados].filter(o => o !== s && o.vivo);
+  // Ochera muere: si alguien la cantó y el que tiene el poder se vuelve a meter al hueco, muere él
+  // (le haya pegado o no al que la cantó). La canica se la lleva el que cantó (si eran varios, al que le pegó o al primero).
+  const ocheros = [...defensas.ochera].filter(v => v !== s && v.vivo);
+  // Ochera muere (si alguien la cantó), el que tira queda eliminado si:
+  //  a) le pegó a un contrincante y su propia bola se fue al hueco
+  //  b) le pegó a un contrincante y echó a un contrincante al hueco
+  //  c) tiene el poder y se volvió a meter al hueco (aunque no le pegue a nadie)
+  const pego = victimas.length > 0;
+  const echoAlguien = [...metidos].find(o => o !== s);
+  const motivoOchera = !ocheros.length ? null
+    : (pego && encholo) ? `le pegó a ${victimas[0].nombre} y su bola se fue al hueco`
+    : (pego && echoAlguien) ? `le pegó a ${victimas[0].nombre} y echó a ${echoAlguien.nombre} al hueco`
+    : (s.poder && encholo) ? 'tenía el poder y se volvió a meter al hueco' : null;
+  const castigoOchera = motivoOchera ? (ocheros.find(v => victimas.includes(v)) || ocheros[0]) : null;
+  const castigo = castigoOchera || (s.poder && victimas.find(v => defensas.carambola.has(v) && victimas.length >= 2));
+  if (castigo){
+    const tipo = castigoOchera ? 'Ochera muere' : 'Carambola muere';
+    s.vivo = false; s.poder = false; s.bola.activa = false; s.bola.mesh.visible = false;
+    pasarCanica(s, castigo);
+    msgs.push(`¡${tipo}! ${s.nombre} ${castigoOchera ? motivoOchera : 'hizo carambola'} y quedó por fuera`);
+    msgs.push(`${castigo.nombre} se queda con la ${ESTILO[s.juega].nombre} de ${s.nombre}`);
+    sfx.caza();
+  } else if (s.poder){
+    if (encholo) otraVez = true;   // con el poder, si se vuelve a encholar también sigue
+    if (victimas.length){
+      victimas.forEach(v => { v.vivo = false; v.poder = false; v.bola.activa = false; v.bola.mesh.visible = false; pasarCanica(v, s); });
+      msgs.push(`¡${s.nombre} cazó a ${victimas.map(v => v.nombre).join(' y ')}!`);
+      msgs.push(`+${victimas.length} canica${victimas.length > 1 ? 's' : ''} para ${s.nombre}: ${victimas.map(v => ESTILO[v.juega].nombre).join(', ')}`);
+      sfx.caza(); otraVez = true;
+    }
+  } else {
+    const robados = victimas.filter(v => v.poder);
+    if (robados.length){
+      robados.forEach(v => v.poder = false);
+      msgs.push(`¡${s.nombre} le quitó el poder a ${robados.map(v => v.nombre).join(' y ')}!`);
+      sfx.caza();
+    } else if (victimas.length){
+      msgs.push(`¡${s.nombre} le pegó a ${victimas.map(v => v.nombre).join(' y ')}!`);
+    }
+    // Regla: cada vez que le pega a otra bola, vuelve a tirar
+    if (victimas.length) otraVez = true;
+    if (encholo){
+      s.poder = true; otraVez = true;
+      msgs.push(`¡Encholó! ${s.nombre} tiene el poder`);
+      sfx.poder();
+    }
+  }
+  if (ganchos.alResolver) ganchos.alResolver({tirador: s, victimas, encholo, castigo: castigo || null,
+    cazo: !castigo && victimas.some(v => !v.vivo), robo: msgs.some(m => /quitó el poder/.test(m)), msgs});
+  if (msgs.length) aviso(msgs.join('\n'));
+  actualizarHUD();
+
+  if (vivos().length === 1){ estado = 'fin'; setTimeout(() => terminar(vivos()[0]), 1300); return; }
+  if (!s.vivo) otraVez = false;
+  if (!otraVez){ do { turno = (turno + 1) % orden.length; } while (!orden[turno].vivo); limpiarDefensas(); }
+  estado = 'espera';
+  setTimeout(turnoJuego, msgs.length ? 1500 : 600);
+}
+
+function pasarCanica(de, a){
+  const i = de.bolsa.indexOf(de.juega);
+  if (i >= 0) de.bolsa.splice(i, 1);
+  a.bolsa.push(de.juega);
+}
+let accionFin = () => mostrarEscoger();
+function terminar(g){
+  if (estado === 'menu') return;
+  if (ganchos.alTerminar) ganchos.alTerminar(g);
+  const personas = serie.filter(j => j.humano);
+  const varias = personas.length > 1;
+  const conCanicas = serie.filter(j => j.bolsa.length > 0);
+  const personasVivas = personas.filter(j => j.bolsa.length > 0);
+  let titulo, txt, boton, sigue = false;
+  if (conCanicas.length === 1){
+    const w = conCanicas[0];
+    titulo = !varias && w.humano ? '¡Los peló a todos!' : `¡${w.nombre} los peló a todos!`;
+    txt = `Se quedó con todas las canicas: ${w.bolsa.length} (${pesos(valorBolsa(w))}).`;
+    boton = 'Nueva serie'; accionFin = () => nuevaSerie();
+  } else if (!personasVivas.length){
+    titulo = varias ? '¡Quedaron pelados!' : '¡Quedó pelado!';
+    txt = varias ? 'La máquina se quedó con todas sus canicas. Toca empezar de nuevo.' : 'Se quedó sin canicas. Toca empezar de nuevo.';
+    boton = 'Nueva serie'; accionFin = () => nuevaSerie();
+  } else {
+    sigue = true;
+    if (varias){
+      titulo = `Ganó ${g.nombre}`;
+      txt = g.humano ? `${g.nombre} cazó a todos en esta ronda.` : 'La máquina ganó esta ronda. Pidan la revancha.';
+    } else {
+      titulo = g.humano ? '¡Ganó la ronda!' : `Ganó ${g.nombre}`;
+      txt = g.humano ? 'Cazó a todos en esta ronda.' : 'Le pelaron la chira. Pida la revancha.';
+    }
+    boton = 'Siguiente ronda'; accionFin = () => mostrarEscoger();
+  }
+  $('#finTitulo').textContent = titulo; $('#finTxt').textContent = txt; $('#btnOtra').textContent = boton;
+  const tabla = $('#finTabla'); tabla.innerHTML = '';
+  serie.slice().sort((a, b) => b.bolsa.length - a.bolsa.length).forEach(j => {
+    const fila = document.createElement('div'); fila.className = 'fila' + (j.bolsa.length ? '' : ' pelado');
+    fila.innerHTML = `<i style="box-shadow:0 0 0 3px ${hex(j.color)}"></i><span class="nom">${j.nombre}</span><span class="cuantas">${j.bolsa.length ? j.bolsa.length + ' canicas · ' + pesos(valorBolsa(j)) : 'PELADO'}</span>`;
+    tabla.appendChild(fila);
+  });
+  $('#fin').hidden = false;
+  if (MODO_PRUEBA){ console.log('[fin] ' + titulo + ' | ' + serie.map(j => j.nombre + ':' + j.bolsa.length).join(' ')); if (sigue) setTimeout(() => { serie.forEach(j => j.eleccion = j.bolsa[0]); nuevaPartida(); }, 1500); }
+  ['#fuerza', '#pista', '#botones', '#cantos', '#barraPod'].forEach(s => $(s).hidden = true);
+}
+
+// ---------- Máquina ----------
+function prepararIA(){
+  const j = tirador, b = j.bola;
+  let ang, vel;
+  const globo = fase === 'salida';
+  if (globo){
+    ang = angHacia(b.p, HOLE);
+    vel = velocidadPara(b.p, ang, distH(b.p, HOLE), true);
+  } else if (j.poder){
+    const presa = presaMasCercana(j);
+    ang = angHacia(b.p, presa.bola.p);
+    vel = velocidadPara(b.p, ang, distH(b.p, presa.bola.p) + 2.5, false);
+  } else {
+    const conPoder = vivos().filter(o => o !== j && o.poder && distH(o.bola.p, b.p) < 4);
+    if (conPoder.length && Math.random() < 0.65){
+      const o = conPoder[0];
+      ang = angHacia(b.p, o.bola.p);
+      vel = velocidadPara(b.p, ang, distH(o.bola.p, b.p) + 2, false);
+    } else {
+      ang = angHacia(b.p, HOLE);
+      vel = velocidadPara(b.p, ang, distH(b.p, HOLE), false);
+    }
+  }
+  // Error de pulso de la máquina: más distancia, más error
+  const lejos = Math.min(1, distH(b.p, HOLE) / 20);
+  ang += gauss() * (0.045 + lejos * 0.02);
+  vel *= 1 + gauss() * (globo ? 0.1 : 0.09);
+  const fuerza = Math.max(0.02, Math.min(1, Math.pow(Math.max(0, vel - 0.4) / (MAXV - 0.4), 1 / CURVA)));
+  ia = {t: -0.5, ang0: apunta.ang, ang, fuerza};
+}
+
+// ---------- Controles táctiles ----------
+const lienzo = renderer.domElement;
+lienzo.addEventListener('pointerdown', e => {
+  if (estado !== 'apuntar' || tirador.ia || defensor) return;
+  if (vistaAerea){ vistaAerea = false; actualizarBotonVista(); }
+  apunta.arrastrando = true; apunta.x0 = e.clientX; apunta.y0 = e.clientY; apunta.ang0 = apunta.ang;
+  lienzo.setPointerCapture && lienzo.setPointerCapture(e.pointerId);
+});
+lienzo.addEventListener('pointermove', e => {
+  if (!apunta.arrastrando) return;
+  apunta.ang = apunta.ang0 + (e.clientX - apunta.x0) * 0.004;
+  apunta.fuerza = Math.max(0, Math.min(1, (e.clientY - apunta.y0) / (innerHeight * 0.33)));
+});
+const soltar = () => {
+  if (!apunta.arrastrando) return;
+  apunta.arrastrando = false;
+  if (estado === 'apuntar' && !defensor && apunta.fuerza > 0.03) tirar(apunta.ang, apunta.fuerza);
+  else apunta.fuerza = 0;
+};
+lienzo.addEventListener('pointerup', soltar);
+lienzo.addEventListener('pointercancel', soltar);
+
+// ---------- HUD ----------
+const colaAvisos = []; let avisoActivo = false;
+function aviso(txt){ colaAvisos.push(txt); if (!avisoActivo) siguienteAviso(); }
+function siguienteAviso(){
+  const el = $('#aviso');
+  if (!colaAvisos.length){ avisoActivo = false; el.classList.remove('ver'); return; }
+  avisoActivo = true; el.textContent = colaAvisos.shift(); el.style.whiteSpace = 'pre-line'; el.classList.add('ver');
+  setTimeout(siguienteAviso, 1500);
+}
+function hex(c){ return '#' + c.toString(16).padStart(6, '0'); }
+function actualizarHUD(){
+  const chips = $('#chips'); chips.innerHTML = '';
+  jugadores.forEach(j => {
+    const d = document.createElement('div');
+    d.className = 'chip' + (j.vivo ? '' : ' fuera') + (j === tirador ? ' activo' : '');
+    const i = document.createElement('i'); i.style.backgroundImage = `url(${iconoURL(j.juega)})`; i.style.boxShadow = `0 0 0 2px ${hex(j.color)}`; d.appendChild(i);
+    d.appendChild(document.createTextNode(j.nombre));
+    const n = document.createElement('span'); n.className = 'cuenta'; n.textContent = j.bolsa.length; d.appendChild(n);
+    const tag = (t, c) => { const p = document.createElement('span'); p.className = c; p.textContent = t; d.appendChild(p); };
+    if (j.poder) tag('PODER', 'poder');
+    if (defensas.ochera.has(j)) tag('OCHERA', 'canto');
+    if (defensas.carambola.has(j)) tag('CARAMBOLA', 'canto');
+    if (j.nada) tag('🚫 NADA', 'canto');
+    if (arenas.some(a => a.d === j && !a.usada)) tag('🌀 ARENA', 'canto');
+    chips.appendChild(d);
+  });
+  if (!tirador) return;
+  $('#turnoNombre').textContent = tirador.ia ? `Tira ${tirador.nombre}` : (variasPersonas() ? `Turno de ${tirador.nombre}` : 'Su turno');
+  let info;
+  if (fase === 'salida') info = 'Salida: lance hacia el hueco';
+  else if (tirador.poder) info = 'Tiene el poder: cace una bola';
+  else info = 'Busque el poder: enchole la bola';
+  $('#turnoInfo').textContent = info + ` · al hueco ${distH(tirador.bola.p, HOLE).toFixed(1).replace('.', ',')} m`;
+  $('#pista').hidden = !(estado === 'apuntar' && !tirador.ia && !defensor && fase === 'salida');
+  $('#btnNada').hidden = true;   // Nada de nada ahora está siempre en la barra de poderes
+}
+function actualizarBotonVista(){ $('#btnVista').setAttribute('aria-pressed', vistaAerea ? 'true' : 'false'); }
+function ocultarPuntos(){ puntos.forEach(p => p.visible = false); }
+
+let modoJuego = 'clasico';
+function guardarMenu(){
+  try { localStorage.setItem('chiras-menu', JSON.stringify({nPersonas, nRivales, nombresPersonas, modoJuego})); } catch (e) {}
+}
+function pintarMenu(){
+  document.querySelectorAll('#modos button').forEach(x => x.setAttribute('aria-pressed', x.dataset.m === modoJuego ? 'true' : 'false'));
+  $('#opcClasico').hidden = modoJuego !== 'clasico'; $('#opcBatalla').hidden = modoJuego !== 'batalla';
+  if ($('#opcAcademia')) $('#opcAcademia').hidden = modoJuego !== 'academia';
+  // entre 2 y 4 bolas en la cancha
+  const minR = nPersonas === 1 ? 1 : 0, maxR = 4 - nPersonas;
+  nRivales = Math.max(minR, Math.min(maxR, nRivales));
+  document.querySelectorAll('#personas button').forEach(x => x.setAttribute('aria-pressed', +x.dataset.n === nPersonas ? 'true' : 'false'));
+  document.querySelectorAll('#rivales button').forEach(x => {
+    const n = +x.dataset.n;
+    x.disabled = n < minR || n > maxR;
+    x.setAttribute('aria-pressed', n === nRivales ? 'true' : 'false');
+  });
+  const cont = $('#nombres'); cont.innerHTML = '';
+  if (nPersonas > 1){
+    for (let i = 0; i < nPersonas; i++){
+      const l = document.createElement('label');
+      l.innerHTML = `<i style="background:${hex(COLORES[i])}"></i><input type="text" maxlength="12" autocomplete="off" aria-label="Nombre del jugador ${i + 1}" placeholder="Jugador ${i + 1}">`;
+      const inp = l.querySelector('input'); inp.value = nombresPersonas[i] || '';
+      inp.addEventListener('input', () => { nombresPersonas[i] = inp.value; guardarMenu(); });
+      cont.appendChild(l);
+    }
+  }
+}
+try {
+  const m = JSON.parse(localStorage.getItem('chiras-menu') || 'null');
+  if (m){ if (m.modoJuego === 'batalla' || m.modoJuego === 'academia') modoJuego = m.modoJuego; nPersonas = Math.max(1, Math.min(4, m.nPersonas | 0 || 1)); nRivales = m.nRivales | 0; if (Array.isArray(m.nombresPersonas)) nombresPersonas = m.nombresPersonas.concat(['', '', '', '']).slice(0, 4).map(String); }
+} catch (e) {}
+pintarMenu();
+$('#modos').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  modoJuego = b.dataset.m; pintarMenu(); guardarMenu();
+});
+['musica', 'efectos', 'voz'].forEach(k => {
+  const el = $('#vol' + k[0].toUpperCase() + k.slice(1));
+  el.value = Math.round(volumen[k] * 100);
+  el.addEventListener('input', () => { volumen[k] = el.value / 100; aplicarVolumen(); });
+});
+$('#personas').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  nPersonas = +b.dataset.n; pintarMenu(); guardarMenu();
+});
+$('#rivales').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b || b.disabled) return;
+  nRivales = +b.dataset.n; pintarMenu(); guardarMenu();
+});
+$('#btnJugar').addEventListener('click', () => {
+  initAudio();
+  if (modoJuego === 'academia' && window.ChirasAcademia) window.ChirasAcademia.abrir();
+  else if (modoJuego === 'batalla' && window.ChirasBatalla) window.ChirasBatalla.iniciarDesdeMenu();
+  else nuevaSerie();
+});
+$('#btnOtra').addEventListener('click', () => { initAudio(); accionFin(); });
+$('#btnBolsa').addEventListener('click', () => {
+  const h = (tirador && tirador.humano && !tirador.ia) ? tirador : (defensor || serie.find(j => j.humano)); if (!h) return;
+  $('#bolsaTitulo').textContent = variasPersonas() ? `Bolsa de ${h.nombre}` : 'Su bolsa';
+  $('#bolsaTxt').textContent = `${h.bolsa.length} canicas · ${pesos(valorBolsa(h))}`;
+  pintarBolsa($('#bolsaLista'), h); $('#bolsaCapa').hidden = false;
+});
+$('#btnCerrarBolsa').addEventListener('click', () => $('#bolsaCapa').hidden = true);
+$('#cantoBtns').addEventListener('click', e => {
+  const bt = e.target.closest('button'); if (!bt || bt.disabled) return;
+  const h = defensor; if (!h) return; const k = bt.dataset.k;
+  if (k === 'desquadris'){ $('#ladoDesq').hidden = false; return; }
+  usarCanto(h, k); abrirVentana();
+});
+$('#ladoDesq').addEventListener('click', e => {
+  const bt = e.target.closest('button'); if (!bt) return;
+  if (!defensor) return;
+  usarCanto(defensor, 'desquadris', +bt.dataset.lado); abrirVentana();
+});
+$('#btnNoCanto').addEventListener('click', () => { if (defensor) siguienteDefensor(); });
+// Salir al menú (hay que tocar dos veces para no perder la ronda sin querer)
+let confirmaMenu = 0;
+$('#btnMenu').addEventListener('click', () => {
+  if (Date.now() - confirmaMenu > 3000){
+    confirmaMenu = Date.now(); $('#btnMenu').textContent = '¿Salir?';
+    setTimeout(() => { $('#btnMenu').textContent = 'Menú'; }, 3000);
+    return;
+  }
+  confirmaMenu = 0; $('#btnMenu').textContent = 'Menú';
+  salirAlMenu();
+});
+function salirAlMenu(){
+  jugadores.forEach(j => { scene.remove(j.bola.mesh); if (j.bola.anillo) scene.remove(j.bola.anillo); });
+  jugadores = []; tirador = null; ia = null; defensor = null; colaDefensa = [];
+  limpiarDefensas(); ocultarPuntos(); colaAvisos.length = 0;
+  apunta.arrastrando = false; apunta.fuerza = 0; vistaAerea = false; actualizarBotonVista();
+  if (ganchos.alSalir) ganchos.alSalir();
+  estado = 'menu';
+  ['#hud', '#fuerza', '#pista', '#botones', '#cantos', '#fin', '#escoger', '#bolsaCapa', '#barraPod'].forEach(s => $(s).hidden = true);
+  $('#menu').hidden = false;
+  if (window.ChirasAudio) window.ChirasAudio.iniciarAmbiente();
+}
+// se activa al tocar (pointerdown), sin esperar a soltar el dedo: más rápido que un clic
+const cantarNada = e => {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  if (estado !== 'apuntar' || !tirador || tirador.ia) return;
+  if (aplicarNada(tirador)){ try { navigator.vibrate && navigator.vibrate(60); } catch (er) {} }
+};
+$('#btnNada').addEventListener('pointerdown', cantarNada);
+// en computador: tecla N
+addEventListener('keydown', e => { if (e.code === 'KeyN' && !$('#btnNada').hidden) cantarNada(e); });
+$('#btnVista').addEventListener('click', () => { vistaAerea = !vistaAerea; actualizarBotonVista(); });
+$('#btnSonido').addEventListener('click', () => { sonido = !sonido; initAudio(); $('#btnSonido').setAttribute('aria-pressed', sonido ? 'true' : 'false'); });
+
+// ---------- Cámara ----------
+const camPos = new V3(6, 6, 8), camMira = new V3(0, 0, -8);
+let reloj = 0;
+function camara(dt){
+  let tp, tm;
+  if (estado === 'menu'){
+    const a = reloj * 0.12;
+    tp = new V3(Math.sin(a) * 9, 4.5, -10 + Math.cos(a) * 14); tm = new V3(0, 0, -10);
+  } else if (vistaAerea){
+    // encuadrar todas las bolas y el hueco
+    let x0 = HOLE.x, x1 = HOLE.x, z0 = HOLE.z, z1 = HOLE.z;
+    jugadores.forEach(j => { if (j.vivo && j.bola.activa){ const p = j.bola.p; x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z); } });
+    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, span = Math.max(8, x1 - x0, z1 - z0);
+    tp = new V3(cx, span * 1.15 + 4, cz + span * 0.3); tm = new V3(cx, 0, cz);
+  } else if (estado === 'apuntar' && tirador){
+    const b = tirador.bola.p, d = dirDe(apunta.ang);
+    tp = b.clone().addScaledVector(d, -2.6); tp.y = b.y + 1.25;
+    tm = b.clone().addScaledVector(d, 3); tm.y = 0;
+  } else if (seguir){
+    // seguir a la bola que más rápido se mueve
+    let rap = seguir, vr = seguir.v.length();
+    jugadores.forEach(j => { if (j.vivo && j.bola.activa){ const v = j.bola.v.length(); if (v > vr * 1.5 + .2){ rap = j.bola; vr = v; } } });
+    seguir = rap;
+    const f = seguir.p;
+    tp = f.clone().addScaledVector(dirTiro, -3.2); tp.y = 1.8;
+    tm = f.clone(); tm.y = 0;
+  } else { tp = camPos.clone(); tm = camMira.clone(); }
+  const k = 1 - Math.exp(-dt * 4);
+  camPos.lerp(tp, k); camMira.lerp(tm, k);
+  camera.position.copy(camPos); camera.lookAt(camMira);
+  sol.target.position.copy(camMira); sol.position.copy(camMira).add(new V3(5, 12, 6));
+}
+
+// ---------- Bucle ----------
+let antes = performance.now(), cuadro = 0;
+function bucle(ahora){
+  const dt = MODO_PRUEBA ? 1/60 : Math.min(0.05, (ahora - antes) / 1000); antes = ahora; reloj += dt;
+  const modoAparte = estado === 'batalla' ? window.ChirasBatalla : estado === 'supervivencia' ? window.ChirasSupervivencia : null;
+  if (modoAparte){
+    modoAparte.paso(dt);
+    marca.position.y = 1.3 + Math.sin(reloj * 2.5) * 0.12; marca.rotation.y += dt * 1.5;
+    if (!MODO_PRUEBA || cuadro++ % 60 === 0){
+      if (!(modoAparte.dibujar && modoAparte.dibujar())) renderer.render(scene, camera);
+      if (ganchos.trasRender) ganchos.trasRender(dt);
+    }
+    if (MODO_PRUEBA) setTimeout(() => bucle(performance.now()), 16);
+    else requestAnimationFrame(bucle);
+    return;
+  }
+
+  if (estado === 'apuntar' && tirador && defensor){
+    esperaCanto -= dt;
+    $('#cantosReloj').style.width = Math.max(0, esperaCanto / ventanaTotal * 100) + '%';
+    if (esperaCanto <= 0) siguienteDefensor();
+  } else if (estado === 'apuntar' && tirador && tirador.ia && !ia && esperaIA > 0){
+    esperaIA -= dt;
+    if (esperaIA <= 0){ cerrarVentana(); terminarMovimientos(); prepararIA(); }
+  }
+  // animación del desquadris
+  jugadores.forEach(j => { const b = j.bola; if (b.hacia){ b.tw += dt / 0.5; const e = Math.min(1, b.tw); b.p.lerpVectors(b.desde, b.hacia, e * e * (3 - 2 * e)); if (e >= 1) b.hacia = null; } });
+  if (estado === 'apuntar' && tirador && tirador.ia && ia){
+    ia.t += dt;
+    const k = Math.max(0, Math.min(1, ia.t / 0.8));
+    apunta.ang = ia.ang0 + (ia.ang - ia.ang0) * Math.min(1, k * 1.4);
+    apunta.fuerza = ia.fuerza * k;
+    if (ia.t > 1.1){ const t = ia; ia = null; tirar(t.ang, t.fuerza); }
+  }
+
+  if (estado === 'rodando'){
+    const sub = 6, h = dt / sub;
+    for (let s = 0; s < sub; s++){
+      jugadores.forEach(j => { if (j.vivo && j.bola.activa) pasoBola(j.bola, h, false); });
+      jugadores.forEach(j => { if (j.vivo && j.bola.activa) chocarBarreras(j.bola); });
+      choques();
+      revisarArenas();
+      soplarViento(h);
+      if (ganchos.trasSubpaso) ganchos.trasSubpaso();
+    }
+    tiempoRodando += dt;
+    if ((tiempoRodando > 0.3 && todoQuieto()) || tiempoRodando > 20){
+      jugadores.forEach(j => j.bola.v.set(0, 0, 0));
+      resolverTiro();
+    }
+  }
+  if (estado === 'apuntar' && tirador && MIRA_CLASICA){
+    const b = tirador.bola, d = dirDe(apunta.ang);
+    const largo = 0.4 + apunta.fuerza * 3.2;
+    const n = Math.round(4 + apunta.fuerza * 12);
+    matPunto.color.setHSL(0.15 - apunta.fuerza * 0.15, 1, 0.6);
+    puntos.forEach((p, i) => {
+      p.visible = i < n;
+      const t = 0.2 + (i / 16) * largo;
+      p.position.set(b.p.x + d.x * t, 0.01, b.p.z + d.z * t);
+    });
+  }
+  $('#fuerzaFill').style.height = (apunta.fuerza * 100) + '%';
+  pintarBarra();
+
+  // rodar las bolas visualmente
+  jugadores.forEach(j => {
+    const b = j.bola;
+    if (b.anillo){ b.anillo.visible = b.activa && j.vivo && !b.enMano; b.anillo.position.set(b.p.x, 0.007, b.p.z); }
+    if (!b.activa) return;
+    const dx = b.p.x - b.last.x, dz = b.p.z - b.last.z, m = Math.hypot(dx, dz);
+    if (m > 1e-6 && b.p.y <= R + 0.01){
+      const eje = new V3(dz / m, 0, -dx / m); // arriba × movimiento
+      b.mesh.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(eje, m / R));
+    }
+    b.mesh.position.copy(b.p); b.last.copy(b.p);
+  });
+
+  marca.position.y = 1.3 + Math.sin(reloj * 2.5) * 0.12; marca.rotation.y += dt * 1.5;
+  camara(dt);
+  if (ganchos.cuadroClasico) ganchos.cuadroClasico(dt);
+  if (!MODO_PRUEBA || cuadro++ % 60 === 0) renderer.render(scene, camera);
+  if (MODO_PRUEBA) setTimeout(() => bucle(performance.now()), 16);
+  else requestAnimationFrame(bucle);
+}
+requestAnimationFrame(bucle);
+addEventListener('resize', () => {
+  renderer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+});
+// Mantener la pantalla encendida y pedir pantalla completa al empezar
+function pantallaCompleta(){
+  try { const el = document.documentElement; const pr = (el.requestFullscreen || el.webkitRequestFullscreen || function(){}).call(el); if (pr && pr.catch) pr.catch(() => {}); } catch(e){}
+  try { navigator.wakeLock && navigator.wakeLock.request('screen').catch(() => {}); } catch(e){}
+}
+$('#btnJugar').addEventListener('click', pantallaCompleta);
+$('#btnOtra').addEventListener('click', pantallaCompleta);
+if (MODO_PRUEBA) window.__clasico = {
+  defensas, jugadores: () => jugadores, orden: () => orden,
+  preparar(o){ tirador = o.tirador; fase = 'juego'; encholo = !!o.encholo; golpeados = new Set(o.golpeados || []); metidos = new Set(o.metidos || []); orden = jugadores.slice(); turno = 0; estado = 'rodando'; },
+  resolver: () => resolverTiro(),
+  nueva: () => nuevaPartida(), limpiar: () => limpiarDefensas(),
+  usarCanto: (d, k) => usarCanto(d, k, 1), aplicarNada: a => aplicarNada(a), barreras: () => barreras,
+  turnoDe: j => { tirador = j; fase = 'juego'; orden = jugadores.slice(); turno = orden.indexOf(j); estado = 'apuntar'; ia = null; actualizarHUD(); },
+  tirar: (ang, f) => tirar(ang, f), arenas: () => arenas, estado: () => estado,
+  iniciarTurno: j => { fase = 'juego'; orden = jugadores.slice(); turno = orden.indexOf(j); turnoJuego(); },
+  nadaDe: () => nadaDe ? nadaDe.nombre : null, viento: () => viento
+};
+// Núcleo compartido con los módulos batalla.js, poderes.js y audio.js
+window.ChirasNucleo = {
+  THREE, scene, camera, renderer, lienzo, sol, R, HOLE, HOLE_R, MAXV, CURVA, CANCHA, COLORES, ESTILOS, ESTILO,
+  hacerBola, nuevaBolaFisica, geoAnillo, pasoBola, choques, velocidadPara, ponerVelocidad, velDeFuerza, dirDe, angHacia, distH, gauss,
+  sfx, tono, initAudio, ganchos, volumen, aplicarVolumen, hex, iconoURL, MODO_PRUEBA, pantallaCompleta,
+  getAudio: () => audio, sonidoActivo: () => sonido,
+  getEstado: () => estado, setEstado: e => { estado = e; },
+  getJugadores: () => jugadores, getTirador: () => tirador, getFase: () => fase, CANTOS, getViento: () => viento,
+  aviso: t => aviso(t), actualizarHUD: () => actualizarHUD(), salirAlMenu: () => salirAlMenu(),
+  setJugadores: a => { jugadores = a; }, setTirador: t => { tirador = t; },
+  verMenu: () => { estado = 'menu'; $('#menu').hidden = false; if (window.ChirasAudio) window.ChirasAudio.iniciarAmbiente(); ['#hud', '#fuerza', '#pista', '#botones', '#cantos', '#fin', '#escoger', '#bolsaCapa'].forEach(s => $(s).hidden = true); },
+  ocultarClasico: () => { ['#menu', '#hud', '#fuerza', '#pista', '#botones', '#cantos', '#fin', '#escoger', '#bolsaCapa'].forEach(s => $(s).hidden = true); ocultarPuntos(); }
+};
+// Modo de prueba: abrir con #prueba para que la máquina juegue con todos
+if (location.hash === '#prueba'){
+  window.__registro = [];
+  const avisoOrig = aviso;
+  aviso = t => { window.__registro.push(t); console.log('[aviso] ' + t.replace(/\n/g, ' | ')); avisoOrig(t); };
+  nPersonas = 1; nRivales = 3; nuevaSerie(); serie[0].eleccion = serie[0].bolsa[0]; nuevaPartida();
+}
+})();
+</script>
+<script src="audio.js"></script>
+<script src="poderes.js"></script>
+<script src="batalla.js"></script>
+<script src="espectaculo.js"></script>
+<script src="progreso.js"></script>
+<script src="clasico-extra.js"></script>
+<script src="supervivencia.js"></script>
+</body>
+</html>

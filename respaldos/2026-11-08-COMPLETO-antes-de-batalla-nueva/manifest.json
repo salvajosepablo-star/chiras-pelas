@@ -1,0 +1,14 @@
+{
+  "name": "Chiras Pelas",
+  "short_name": "Chiras Pelas",
+  "description": "Juego de canicas de barrio en 3D: encholar, ganar el poder y cazar.",
+  "lang": "es",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#2a1d13",
+  "theme_color": "#2a1d13",
+  "icons": [
+    { "src": "icono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
