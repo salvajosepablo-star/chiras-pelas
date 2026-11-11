@@ -2618,6 +2618,19 @@ function pintarMenu(){
   if ($('#opcArroyo')) $('#opcArroyo').hidden = modoJuego !== 'arroyuelo';
   if ($('#opcOnline')) $('#opcOnline').hidden = modoJuego !== 'online';
   if ($('#btnJugar')) $('#btnJugar').hidden = modoJuego === 'online';
+  // En modo online ocultamos opciones locales como dificultad de bots, personas y rivales
+  const ocultarLocal = modoJuego === 'online' || modoJuego === 'academia';
+  const h2s = document.querySelectorAll('#menu .tarjeta h2');
+  h2s.forEach(h => {
+    const t = h.textContent;
+    if (t.includes('personas') || t.includes('rivales') || t.includes('Dificultad')) {
+      h.hidden = ocultarLocal;
+    }
+  });
+  if ($('#personas')) $('#personas').hidden = ocultarLocal;
+  if ($('#rivales')) $('#rivales').hidden = ocultarLocal;
+  if ($('#niveles')) $('#niveles').hidden = ocultarLocal;
+  if ($('#notaNivel')) $('#notaNivel').hidden = ocultarLocal;
   pintarArroyo();
   if ($('#opcLoca')) $('#opcLoca').hidden = modoJuego !== 'batalla';
   document.querySelectorAll('#rivales .soloLoca').forEach(b => { b.hidden = modoJuego !== 'batalla'; });
