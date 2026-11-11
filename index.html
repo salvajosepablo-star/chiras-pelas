@@ -2925,11 +2925,13 @@ function pantallaCompleta(){
 }
 $('#btnJugar').addEventListener('click', pantallaCompleta);
 $('#btnOtra').addEventListener('click', pantallaCompleta);
-if (MODO_PRUEBA) window.__clasico = {
+// Expuesto para modo online y pruebas
+window.__clasico = {
   defensas, jugadores: () => jugadores, orden: () => orden,
   preparar(o){ tirador = o.tirador; fase = 'juego'; encholo = !!o.encholo; golpeados = new Set(o.golpeados || []); metidos = new Set(o.metidos || []); orden = jugadores.slice(); turno = 0; estado = 'rodando'; },
   resolver: () => resolverTiro(),
   nueva: () => nuevaPartida(), limpiar: () => limpiarDefensas(),
+  iniciarSerieCon: (arr) => { serie = arr; nuevaPartida(); },
   usarCanto: (d, k) => usarCanto(d, k, 1), aplicarNada: a => aplicarNada(a), barreras: () => barreras,
   barrerasLista: () => barreras, quitarBoloncho: d => quitarBoloncho(d),
   turnoDe: j => { tirador = j; fase = 'juego'; orden = jugadores.slice(); turno = orden.indexOf(j); estado = 'apuntar'; ia = null; actualizarHUD(); },
@@ -2999,6 +3001,8 @@ if (location.hash === '#prueba'){
 
   btnCrear.addEventListener('click', () => {
     const nom = inpNombre.value.trim() || 'Jugador 1';
+    btnCrear.disabled = true;
+    btnCrear.textContent = '⏳ Creando sala...';
     window.ChirasOnline.crearSala(nom, 'clasico');
   });
 
@@ -3006,10 +3010,22 @@ if (location.hash === '#prueba'){
     const cod = inpCodigo.value.trim().toUpperCase();
     if (!cod) { alert('Ingrese un código de sala'); return; }
     const nom = inpNombre.value.trim() || 'Jugador 2';
+    btnUnirse.disabled = true;
+    btnUnirse.textContent = '⏳ Uniendo...';
     window.ChirasOnline.unirseSala(cod, nom);
   });
 
+  window.ChirasOnline.on('onError', (err) => {
+    btnCrear.disabled = false;
+    btnCrear.textContent = '➕ Crear Sala';
+    btnUnirse.disabled = false;
+    btnUnirse.textContent = 'Unirse';
+    alert(err);
+  });
+
   btnIniciar.addEventListener('click', () => {
+    btnIniciar.disabled = true;
+    btnIniciar.textContent = '⏳ Iniciando...';
     window.ChirasOnline.iniciarPartida();
   });
 
@@ -3071,13 +3087,12 @@ if (location.hash === '#prueba'){
         };
       });
 
-      // Sobreescribir serie y arrancar
       window.__serieOnline = serieRemota;
       nucleo.aviso('¡Partida Online en Vivo!\nTodos a la raya');
       
       // Disparar inicio en el núcleo
-      if (typeof window.__clasico !== 'undefined') {
-        // Enlazar sincronización de tiro
+      if (window.__clasico && window.__clasico.iniciarSerieCon) {
+        window.__clasico.iniciarSerieCon(serieRemota);
       }
     }
   });

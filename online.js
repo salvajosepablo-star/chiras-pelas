@@ -27,9 +27,14 @@ window.ChirasOnline = (function(){
       }
     };
 
-    ws.onclose = () => {
-      console.log('Desconectado del servidor multijugador');
+    ws.onclose = (ev) => {
+      console.log('Desconectado del servidor multijugador', ev);
       if (callbacks.onDesconectado) callbacks.onDesconectado();
+    };
+
+    ws.onerror = (err) => {
+      console.error('Error en WebSocket:', err);
+      if (callbacks.onError) callbacks.onError('Error de conexión con el servidor.');
     };
   }
 
