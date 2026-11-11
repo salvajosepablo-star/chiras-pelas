@@ -1580,11 +1580,14 @@ function presaMasCercana(j){
   return mejor;
 }
 
-function tirar(ang, fuerza){
+function tirar(ang, fuerza, esRemoto){
   terminarMovimientos(); cerrarVentana();
   const b = tirador.bola;
   const vel = velDeFuerza(fuerza);
   dirTiro = dirDe(ang);
+  if (modoJuego === 'online' && !esRemoto && window.ChirasOnline) {
+    window.ChirasOnline.enviarAccion('TIRO', { ang, fuerza });
+  }
   if (viento && !viento.activo && tirador !== viento.por) activarViento();
   golpeados = new Set(); metidos = new Set(); encholo = false; tiempoRodando = 0; poderAlTirar = !!tirador.poder; tocoFicha = false;
   arenas.forEach(a => { a.dentroAlTirar = Math.hypot(tirador.bola.p.x - a.x, tirador.bola.p.z - a.z) < ARENA_R; });
@@ -2316,6 +2319,10 @@ function prepararIA(){
 const lienzo = renderer.domElement;
 // ¿la persona puede apuntar ahora mismo? (en batalla se apunta aunque la bola vaya rodando)
 function puedeApuntarAhora(){
+  if (modoJuego === 'online') {
+    const miP = window.ChirasOnline && window.ChirasOnline.getMiJugador();
+    if (!miP || !tirador || tirador.remotoId !== miP.id) return false;
+  }
   if (estado === 'libre') return !!(tirador && !tirador.ia && tirador.vivo && !tirador._comido && tirador.bola.activa);
   return estado === 'apuntar' && !!tirador && !tirador.ia && !defensor;
 }
@@ -2594,7 +2601,13 @@ function actualizarHUD(){
     return;
   }
   if (!tirador) return;
-  $('#turnoNombre').textContent = tirador.ia ? `Tira ${tirador.nombre}` : (variasPersonas() ? `Turno de ${tirador.nombre}` : 'Su turno');
+  if (modoJuego === 'online') {
+    const miP = window.ChirasOnline && window.ChirasOnline.getMiJugador();
+    const esMio = miP && tirador.remotoId === miP.id;
+    $('#turnoNombre').textContent = esMio ? '¡Su turno!' : `Turno de ${tirador.nombre} (Esperando...)`;
+  } else {
+    $('#turnoNombre').textContent = tirador.ia ? `Tira ${tirador.nombre}` : (variasPersonas() ? `Turno de ${tirador.nombre}` : 'Su turno');
+  }
   let info;
   if (fase === 'salida') info = 'Salida: lance hacia el hueco';
   else if (tirador.poder) info = 'Tiene el poder: cace una bola';
@@ -2942,7 +2955,7 @@ window.__clasico = {
   usarCanto: (d, k) => usarCanto(d, k, 1), aplicarNada: a => aplicarNada(a), barreras: () => barreras,
   barrerasLista: () => barreras, quitarBoloncho: d => quitarBoloncho(d),
   turnoDe: j => { tirador = j; fase = 'juego'; orden = jugadores.slice(); turno = orden.indexOf(j); estado = 'apuntar'; ia = null; actualizarHUD(); },
-  tirar: (ang, f) => tirar(ang, f), arenas: () => arenas, estado: () => estado,
+  tirar: (ang, f, esRemoto) => tirar(ang, f, esRemoto), arenas: () => arenas, estado: () => estado,
   serieLoca: n => { batallaLoca = true; nPersonas = 1; nRivales = n; nuevaSerie(); serie.forEach(j => j.eleccion = j.bolsa[0]); nuevaPartida(); },
   abrirCarrera: s => abrirCarrera(s), reclamar: j => reclamar(j), carrera: () => carrera, lanzarCohete: j => lanzarCohete(j), objetivoCohete: j => objetivoCohete(j), muertas: () => muertas, setBatalla: v => { batallaLoca = v; },
   iniciarTurno: j => { fase = 'juego'; orden = jugadores.slice(); turno = orden.indexOf(j); turnoJuego(); },
@@ -3108,11 +3121,9 @@ if (location.hash === '#prueba'){
 
   window.ChirasOnline.on('onAccionRemota', (data) => {
     console.log('Acción remota recibida:', data);
-    // Sincronizar tiro remoto o cantos
+    // Sincronizar tiro remoto
     if (data.accion === 'TIRO' && window.__clasico) {
-      window.__clasico.tirar(data.detalles.ang, data.detalles.fuerza);
-    } else if (data.accion === 'CANTO' && window.__clasico) {
-      // aplicar canto remoto
+      window.__clasico.tirar(data.detalles.ang, data.detalles.fuerza, true);
     }
   });
 })();
