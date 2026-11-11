@@ -160,6 +160,70 @@ button.item:active{border-color:var(--amarillo)}
 #minimapa{position:fixed;left:max(8px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 8px);width:104px;height:136px;z-index:5;pointer-events:none;border-radius:12px;border:1.5px solid rgba(247,234,208,.45);background:rgba(20,12,6,.22)}
 #minimapa[hidden]{display:none}
 body.conMapa .hud{padding-left:calc(max(8px,env(safe-area-inset-left,0px)) + 112px)}
+
+/* Botón de Tutorial en el juego */
+#btnTutorial{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);right:calc(max(12px,env(safe-area-inset-right,0px)) + 50px);z-index:10;background:rgba(30,18,8,.85);border:2px solid var(--amarillo);color:var(--amarillo);border-radius:20px;padding:5px 12px;font-family:var(--display);font-size:13px;display:flex;align-items:center;gap:5px;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.4);transition:transform .15s}
+#btnTutorial:active{transform:scale(.94)}
+
+/* Capa del Tutorial Interactivo con Manito */
+#capaTutorial{position:fixed;inset:0;z-index:9999;pointer-events:auto;user-select:none;-webkit-user-select:none;touch-action:manipulation;font-family:var(--body);color:var(--crema)}
+#capaTutorial[hidden]{display:none!important}
+.tut-fondo{position:absolute;inset:0;background:rgba(12,7,3,.78);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);animation:tutFadeIn .25s ease-out}
+
+/* Foco / Resaltado circular o rectangular */
+.tut-foco{position:absolute;pointer-events:none;border-radius:18px;border:3px solid var(--amarillo);box-shadow:0 0 0 9999px rgba(12,7,3,.78), 0 0 25px rgba(245,197,24,.6);transition:all .35s cubic-bezier(.2,.8,.2,1);z-index:1}
+
+/* Manito animada */
+.tut-manito-wrap{position:absolute;z-index:2;pointer-events:none;transform:translate(-50%,-50%);transition:all .35s cubic-bezier(.2,.8,.2,1)}
+.tut-manito{font-size:46px;display:inline-block;filter:drop-shadow(0 4px 10px rgba(0,0,0,.7));transform-origin:top left}
+.tut-onda{position:absolute;left:50%;top:50%;width:24px;height:24px;margin:-12px 0 0 -12px;border:3px solid var(--amarillo);border-radius:50%;pointer-events:none;opacity:0}
+
+/* Animaciones de la manito según el tipo de acción */
+@keyframes tutTap{
+  0%,100%{transform:scale(1) translate(0,0)}
+  50%{transform:scale(.82) translate(4px,6px)}
+}
+@keyframes tutOndaTap{
+  0%{transform:scale(.5);opacity:1}
+  100%{transform:scale(2.5);opacity:0}
+}
+@keyframes tutArrastreTiro{
+  0%{transform:translate(0, -25px) scale(1)}
+  20%{transform:translate(0, -25px) scale(.85)}
+  65%{transform:translate(0, 75px) scale(.85)}
+  75%{transform:translate(0, 75px) scale(1)}
+  100%{transform:translate(0, -25px) scale(1)}
+}
+@keyframes tutApuntarLados{
+  0%,100%{transform:translate(0, 0)}
+  25%{transform:translate(-45px, 0)}
+  75%{transform:translate(45px, 0)}
+}
+@keyframes tutFlotar{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-10px)}
+}
+.tut-anim-tap .tut-manito{animation:tutTap 1s ease-in-out infinite}
+.tut-anim-tap .tut-onda{animation:tutOndaTap 1s ease-out infinite}
+.tut-anim-arrastre .tut-manito{animation:tutArrastreTiro 2.2s cubic-bezier(.2,.8,.3,1) infinite}
+.tut-anim-lados .tut-manito{animation:tutApuntarLados 2.2s ease-in-out infinite}
+.tut-anim-flotar .tut-manito{animation:tutFlotar 1.4s ease-in-out infinite}
+
+/* Tarjeta de explicación */
+.tut-tarjeta{position:absolute;z-index:3;width:min(90vw, 360px);background:linear-gradient(180deg, var(--tierra-2), var(--tierra));border:3px solid var(--amarillo);border-radius:18px;padding:16px 18px;box-shadow:0 12px 36px rgba(0,0,0,.7);transition:all .35s cubic-bezier(.2,.8,.2,1);transform:translateX(-50%);left:50%}
+.tut-paso-badge{display:inline-block;background:var(--amarillo);color:var(--tierra);font-family:var(--display);font-size:12px;padding:3px 8px;border-radius:6px;margin-bottom:6px;letter-spacing:.5px}
+.tut-tarjeta h3{margin:0 0 6px;font-family:var(--display);font-size:22px;color:var(--amarillo);letter-spacing:.3px;line-height:1.2}
+.tut-tarjeta p{margin:0 0 14px;font-size:14px;line-height:1.42;opacity:.95}
+.tut-acciones{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tut-acciones button{font-family:var(--display);font-size:14px;padding:8px 14px;border-radius:10px;border:0;cursor:pointer;touch-action:manipulation;transition:transform .12s}
+.tut-acciones button:active{transform:scale(.95)}
+.tut-btn-saltar{background:transparent;color:rgba(247,234,208,.6);border:1px solid rgba(247,234,208,.25)!important}
+.tut-btn-sig{background:linear-gradient(#f5c518,#e0a000);color:var(--tierra);box-shadow:0 3px 0 #8f6500;padding:8px 18px!important;font-size:15px!important}
+.tut-btn-ant{background:rgba(247,234,208,.15);color:var(--crema)}
+.tut-indicador{display:flex;gap:4px;justify-content:center;margin-top:10px}
+.tut-punto{width:8px;height:8px;border-radius:50%;background:rgba(247,234,208,.3);transition:background .2s}
+.tut-punto.activo{background:var(--amarillo);width:18px;border-radius:4px}
+@keyframes tutFadeIn{from{opacity:0}to{opacity:1}}
 </style>
 </head>
 <body>
@@ -174,6 +238,7 @@ body.conMapa .hud{padding-left:calc(max(8px,env(safe-area-inset-left,0px)) + 112
 <div class="pista" id="pista" hidden><p id="pistaTxt">Arrastre hacia abajo para cargar la fuerza y a los lados para apuntar. Suelte para tirar. Sin línea de puntería: todo es a pulso.</p></div>
 <div class="botones" id="botones" hidden>
   <button id="btnNada" type="button" hidden aria-label="Cantar Nada de nada"><span>🚫</span>NADA DE<br>NADA</button>
+  <button id="btnTutorial" type="button" aria-label="Ver tutorial y guía de juego"><span>👆</span>Tutorial</button>
   <button id="btnMenu" type="button">Menú</button>
   <button id="btnBolsa" type="button">Bolsa</button>
   <button id="btnVista" type="button" aria-pressed="false">Vista</button>
@@ -404,7 +469,10 @@ body.conMapa .hud{padding-left:calc(max(8px,env(safe-area-inset-left,0px)) + 112
       <label for="volEfectos">Efectos</label><input type="range" id="volEfectos" min="0" max="100">
       <label for="volVoz">Narrador</label><input type="range" id="volVoz" min="0" max="100">
     </div>
-    <button class="jugar" id="btnJugar" type="button">Jugar</button>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="jugar" id="btnTutorialMenu" type="button" style="flex:1;background:var(--tierra-2);border:2px solid var(--amarillo);color:var(--amarillo);box-shadow:0 5px 0 #1b120a;font-size:18px">👆 Ver Tutorial</button>
+      <button class="jugar" id="btnJugar" type="button" style="flex:1.4">Jugar</button>
+    </div>
   </div>
 </div>
 
@@ -432,6 +500,29 @@ body.conMapa .hud{padding-left:calc(max(8px,env(safe-area-inset-left,0px)) + 112
     <p class="sub" id="bolsaTxt"></p>
     <div class="lista" id="bolsaLista"></div>
     <button class="jugar" id="btnCerrarBolsa" type="button">Seguir jugando</button>
+  </div>
+</div>
+
+<!-- CAPA TUTORIAL INTERACTIVO CON MANITO -->
+<div id="capaTutorial" hidden>
+  <div class="tut-fondo"></div>
+  <div class="tut-foco" id="tutFoco"></div>
+  <div class="tut-manito-wrap" id="tutManitoWrap">
+    <div class="tut-manito">👉</div>
+    <div class="tut-onda"></div>
+  </div>
+  <div class="tut-tarjeta" id="tutTarjeta">
+    <span class="tut-paso-badge" id="tutBadge">PASO 1 DE 7</span>
+    <h3 id="tutTitulo">Bienvenido</h3>
+    <p id="tutDesc">Aprenda a jugar canicas de barrio.</p>
+    <div class="tut-acciones">
+      <button type="button" class="tut-btn-saltar" id="tutBtnSaltar">Saltar</button>
+      <div style="display:flex;gap:6px">
+        <button type="button" class="tut-btn-ant" id="tutBtnAnt">Anterior</button>
+        <button type="button" class="tut-btn-sig" id="tutBtnSig">Siguiente</button>
+      </div>
+    </div>
+    <div class="tut-indicador" id="tutIndicador"></div>
   </div>
 </div>
 
@@ -3167,6 +3258,262 @@ if (location.hash === '#prueba'){
       }
     }
   });
+})();
+</script>
+
+<script>
+// ==========================================
+// TUTORIAL INTERACTIVO CON MANITO INDICADORA
+// ==========================================
+(() => {
+  const capa = document.getElementById('capaTutorial');
+  const foco = document.getElementById('tutFoco');
+  const manitoWrap = document.getElementById('tutManitoWrap');
+  const manitoEl = manitoWrap.querySelector('.tut-manito');
+  const tarjeta = document.getElementById('tutTarjeta');
+  const badge = document.getElementById('tutBadge');
+  const titulo = document.getElementById('tutTitulo');
+  const desc = document.getElementById('tutDesc');
+  const btnSaltar = document.getElementById('tutBtnSaltar');
+  const btnAnt = document.getElementById('tutBtnAnt');
+  const btnSig = document.getElementById('tutBtnSig');
+  const indicador = document.getElementById('tutIndicador');
+
+  let pasoActual = 0;
+
+  const PASOS = [
+    {
+      titulo: '¡Bienvenido a Chiras Pelas!',
+      desc: 'Este es el auténtico juego de canicas de barrio colombianas. Vamos a mostrarte paso a paso cómo jugar, apuntar y ganar la partida.',
+      manito: '👋',
+      anim: 'tut-anim-flotar',
+      posManito: () => ({ x: window.innerWidth / 2, y: window.innerHeight * 0.38 }),
+      posTarjeta: () => ({ bottom: Math.max(20, window.innerHeight * 0.12) }),
+      foco: null
+    },
+    {
+      titulo: '1. Fuerza del Tiro',
+      desc: 'Para lanzar tu canica, pon el dedo en la pantalla y <b>arrastra hacia abajo</b>. Entre más bajes el dedo, más sube la barra de fuerza de la izquierda.',
+      manito: '👇',
+      anim: 'tut-anim-arrastre',
+      posManito: () => ({ x: window.innerWidth * 0.5, y: window.innerHeight * 0.55 }),
+      posTarjeta: () => ({ top: 40 }),
+      foco: () => {
+        const el = document.getElementById('fuerza');
+        const r = el && !el.hidden ? el.getBoundingClientRect() : { left: 10, top: window.innerHeight * 0.3, width: 28, height: window.innerHeight * 0.4 };
+        return { left: r.left - 6, top: r.top - 6, width: r.width + 12, height: r.height + 12 };
+      }
+    },
+    {
+      titulo: '2. Apuntar la Dirección',
+      desc: 'Mientras tienes el dedo puesto, muévelo de <b>lado a lado (izquierda o derecha)</b> para calibrar la puntería hacia el hueco o la bola enemiga.',
+      manito: '👉',
+      anim: 'tut-anim-lados',
+      posManito: () => ({ x: window.innerWidth * 0.5, y: window.innerHeight * 0.65 }),
+      posTarjeta: () => ({ top: 40 }),
+      foco: null
+    },
+    {
+      titulo: '3. Soltar para Disparar',
+      desc: '¡Cuando tengas la fuerza y dirección calculadas, <b>suelta la pantalla</b>! No hay línea de ayuda de puntería: todo es a puro pulso y talento.',
+      manito: '🎯',
+      anim: 'tut-anim-tap',
+      posManito: () => ({ x: window.innerWidth * 0.5, y: window.innerHeight * 0.6 }),
+      posTarjeta: () => ({ bottom: 50 }),
+      foco: null
+    },
+    {
+      titulo: '4. El Objetivo: Encholar y Cazar',
+      desc: '<b>Paso A:</b> Meta la bola en el hueco a 20 metros para ganar <b>EL PODER</b>.<br><b>Paso B:</b> Con el poder activo, ¡péguele a las bolas contrarias para eliminarlas y quedarse con sus canicas!',
+      manito: '🕳️',
+      anim: 'tut-anim-flotar',
+      posManito: () => ({ x: window.innerWidth * 0.5, y: window.innerHeight * 0.32 }),
+      posTarjeta: () => ({ bottom: 40 }),
+      foco: null
+    },
+    {
+      titulo: '5. Poderes y Cantos',
+      desc: 'Abajo tienes la barra de poderes: <b>Barrera</b> (te protege), <b>Desquadris</b> (te mueve de lado), <b>Ochera/Carambola muere</b>, <b>Arena movediza</b> y <b>Boloncho</b>. ¡Úsalos en el momento justo!',
+      manito: '👆',
+      anim: 'tut-anim-tap',
+      posManito: () => {
+        const b = document.getElementById('barraPod');
+        const r = b && !b.hidden ? b.getBoundingClientRect() : { left: window.innerWidth * 0.5, top: window.innerHeight - 80, width: 200, height: 60 };
+        return { x: r.left + r.width * 0.5, y: r.top - 20 };
+      },
+      posTarjeta: () => ({ top: 35 }),
+      foco: () => {
+        const b = document.getElementById('barraPod');
+        if (b && !b.hidden) {
+          const r = b.getBoundingClientRect();
+          return { left: r.left - 4, top: r.top - 4, width: r.width + 8, height: r.height + 8 };
+        }
+        return { left: 10, top: window.innerHeight - 80, width: window.innerWidth - 20, height: 70 };
+      }
+    },
+    {
+      titulo: '6. 🚫 Nada de Nada',
+      desc: 'El botón rojo gigante <b>NADA DE NADA</b> anula inmediatamente los poderes de tus rivales. Si alguien te va a atacar con un poder, ¡tócalo antes que él!',
+      manito: '👉',
+      anim: 'tut-anim-tap',
+      posManito: () => {
+        const b = document.getElementById('btnNada');
+        const r = b && !b.hidden ? b.getBoundingClientRect() : { left: window.innerWidth - 70, top: window.innerHeight * 0.34, width: 90, height: 90 };
+        return { x: r.left - 25, y: r.top + r.height * 0.5 };
+      },
+      posTarjeta: () => ({ bottom: 40 }),
+      foco: () => {
+        const b = document.getElementById('btnNada');
+        if (b && !b.hidden) {
+          const r = b.getBoundingClientRect();
+          return { left: r.left - 4, top: r.top - 4, width: r.width + 8, height: r.height + 8, radio: '50%' };
+        }
+        return null;
+      }
+    },
+    {
+      titulo: '7. Menú, Bolsa y Vistas',
+      desc: 'Arriba a la derecha puedes pausar al <b>Menú</b>, revisar tu <b>Bolsa</b> de canicas ganadas, alternar la <b>Vista aérea</b> o abrir este <b>Tutorial</b> cuando quieras.',
+      manito: '👆',
+      anim: 'tut-anim-tap',
+      posManito: () => {
+        const b = document.getElementById('botones');
+        const r = b && !b.hidden ? b.getBoundingClientRect() : { left: window.innerWidth - 150, top: 20, width: 140, height: 40 };
+        return { x: r.left + r.width * 0.5, y: r.top + 50 };
+      },
+      posTarjeta: () => ({ bottom: 50 }),
+      foco: () => {
+        const b = document.getElementById('botones');
+        if (b && !b.hidden) {
+          const r = b.getBoundingClientRect();
+          return { left: r.left - 6, top: r.top - 6, width: r.width + 12, height: r.height + 12 };
+        }
+        return null;
+      }
+    },
+    {
+      titulo: '¡A jugar y a ganar canicas!',
+      desc: 'Si te eliminan puedes pedir <b>La Revancha</b> apostando otra bola. ¡Demuestra quién manda en la cuadra!',
+      manito: '⭐',
+      anim: 'tut-anim-flotar',
+      posManito: () => ({ x: window.innerWidth / 2, y: window.innerHeight * 0.4 }),
+      posTarjeta: () => ({ bottom: Math.max(20, window.innerHeight * 0.15) }),
+      foco: null
+    }
+  ];
+
+  function construirIndicadores() {
+    indicador.innerHTML = '';
+    PASOS.forEach((_, i) => {
+      const p = document.createElement('div');
+      p.className = 'tut-punto' + (i === pasoActual ? ' activo' : '');
+      indicador.appendChild(p);
+    });
+  }
+
+  function mostrarPaso(idx) {
+    if (idx < 0) idx = 0;
+    if (idx >= PASOS.length) {
+      cerrarTutorial();
+      return;
+    }
+    pasoActual = idx;
+    const p = PASOS[pasoActual];
+
+    badge.textContent = `PASO ${pasoActual + 1} DE ${PASOS.length}`;
+    titulo.innerHTML = p.titulo;
+    desc.innerHTML = p.desc;
+    manitoEl.textContent = p.manito || '👉';
+
+    // Animación de manito
+    manitoWrap.className = 'tut-manito-wrap ' + (p.anim || 'tut-anim-tap');
+    const posM = p.posManito();
+    manitoWrap.style.left = `${posM.x}px`;
+    manitoWrap.style.top = `${posM.y}px`;
+
+    // Posición tarjeta
+    tarjeta.style.top = '';
+    tarjeta.style.bottom = '';
+    const posT = p.posTarjeta();
+    if (posT.top !== undefined) tarjeta.style.top = `${posT.top}px`;
+    if (posT.bottom !== undefined) tarjeta.style.bottom = `${posT.bottom}px`;
+
+    // Foco iluminado
+    const f = p.foco ? p.foco() : null;
+    if (f) {
+      foco.hidden = false;
+      foco.style.left = `${f.left}px`;
+      foco.style.top = `${f.top}px`;
+      foco.style.width = `${f.width}px`;
+      foco.style.height = `${f.height}px`;
+      foco.style.borderRadius = f.radio || '16px';
+    } else {
+      foco.hidden = true;
+    }
+
+    // Botones
+    btnAnt.disabled = pasoActual === 0;
+    btnAnt.style.opacity = pasoActual === 0 ? '0.35' : '1';
+    btnSig.textContent = pasoActual === PASOS.length - 1 ? '¡Listo a Jugar!' : 'Siguiente';
+
+    construirIndicadores();
+  }
+
+  function abrirTutorial() {
+    pasoActual = 0;
+    capa.hidden = false;
+    mostrarPaso(0);
+  }
+
+  function marcarCompletado() {
+    try {
+      localStorage.setItem('chiras-tutorial-visto', 'true');
+    } catch(e){}
+  }
+
+  function cerrarTutorial(completado = true) {
+    capa.hidden = true;
+    if (completado) {
+      marcarCompletado();
+    }
+  }
+
+  btnSig.addEventListener('click', () => {
+    if (pasoActual >= PASOS.length - 1) {
+      marcarCompletado();
+      cerrarTutorial(true);
+    } else {
+      mostrarPaso(pasoActual + 1);
+    }
+  });
+  btnAnt.addEventListener('click', () => mostrarPaso(pasoActual - 1));
+  btnSaltar.addEventListener('click', () => {
+    marcarCompletado();
+    cerrarTutorial(true);
+  });
+
+  const btnTut = document.getElementById('btnTutorial');
+  if (btnTut) btnTut.addEventListener('click', abrirTutorial);
+
+  const btnTutMenu = document.getElementById('btnTutorialMenu');
+  if (btnTutMenu) btnTutMenu.addEventListener('click', abrirTutorial);
+
+  // Auto-apertura: solo la primera vez que un usuario ingresa al juego
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      try {
+        const visto = localStorage.getItem('chiras-tutorial-visto');
+        if (!visto) {
+          abrirTutorial();
+        }
+      } catch(e) {}
+    }, 600);
+  });
+
+  window.ChirasTutorial = {
+    abrir: abrirTutorial,
+    cerrar: cerrarTutorial
+  };
 })();
 </script>
 </body>
