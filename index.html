@@ -222,7 +222,33 @@ body.conMapa .hud{padding-left:calc(max(8px,env(safe-area-inset-left,0px)) + 112
       <button type="button" data-m="clasico" aria-pressed="true">Clásico</button>
       <button type="button" data-m="batalla" aria-pressed="false">Batalla</button>
       <button type="button" data-m="arroyuelo" aria-pressed="false">Arroyuelo</button>
+      <button type="button" data-m="online" aria-pressed="false" style="border-color:#20a65a;color:#5cff8a">🌐 Online</button>
       <button type="button" data-m="academia" aria-pressed="false">Academia</button>
+    </div>
+    <div class="grupo" id="opcOnline" hidden>
+      <h2>🌐 Multijugador Online en Tiempo Real</h2>
+      <p class="nota">Juegue en vivo contra amigos desde cualquier celular o computador a través de internet.</p>
+      <label style="display:flex;flex-direction:column;gap:6px">
+        <span style="font-size:14px">Su apodo:</span>
+        <input type="text" id="onlineNombre" maxlength="12" placeholder="Su nombre" style="font:inherit;font-size:16px;padding:8px 12px;border-radius:10px;border:2px solid rgba(247,234,208,.3);background:var(--tierra-2);color:var(--crema)">
+      </label>
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <button type="button" class="jugar" id="btnCrearSala" style="flex:1;font-size:18px;padding:10px;background:#20a65a;box-shadow:0 4px 0 #0f542c">➕ Crear Sala</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:12px;background:var(--tierra-2);padding:12px;border-radius:12px;border:2px solid rgba(247,234,208,.2)">
+        <span style="font-size:14px">O ingresar con código de sala:</span>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="onlineCodigo" maxlength="6" placeholder="Ej: ABCD" style="flex:1;font:inherit;text-transform:uppercase;font-size:18px;font-weight:bold;letter-spacing:2px;text-align:center;padding:8px;border-radius:10px;border:2px solid rgba(247,234,208,.3);background:var(--tierra);color:var(--amarillo)">
+          <button type="button" id="btnUnirseSala" style="font-family:var(--display);font-size:16px;padding:8px 14px;border-radius:10px;border:0;background:var(--amarillo);color:var(--tierra)">Unirse</button>
+        </div>
+      </div>
+      <div id="onlineSalaInfo" hidden style="background:rgba(32,166,90,.15);border:2px solid #20a65a;border-radius:12px;padding:12px;margin-top:10px">
+        <div style="font-family:var(--display);font-size:20px;color:#5cff8a">Sala: <span id="onlineSalaCodigo" style="letter-spacing:3px">----</span></div>
+        <p class="nota" style="margin:4px 0 8px">Comparta este código con su contrincante para que se una.</p>
+        <div id="onlineListaJugadores" style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px"></div>
+        <button type="button" class="jugar" id="btnIniciarOnline" hidden style="width:100%;font-size:18px;padding:10px;background:#20a65a;box-shadow:0 4px 0 #0f542c">🚀 ¡Comenzar Partida!</button>
+        <div id="onlineEsperaMsg" style="font-size:14px;opacity:.9;text-align:center">Esperando a que se unan jugadores...</div>
+      </div>
     </div>
     <div class="grupo" id="opcAcademia" hidden>
       <p class="nota">Academia de puntería: retos para mejorar el pulso. Se mejora practicando.</p>
@@ -2590,6 +2616,8 @@ function pintarMenu(){
   // la Batalla es una copia del Clásico: usa las mismas opciones (y su recuadro de reglas)
   $('#opcClasico').hidden = !(modoJuego === 'clasico' || modoJuego === 'batalla' || modoJuego === 'arroyuelo'); $('#opcBatalla').hidden = true;
   if ($('#opcArroyo')) $('#opcArroyo').hidden = modoJuego !== 'arroyuelo';
+  if ($('#opcOnline')) $('#opcOnline').hidden = modoJuego !== 'online';
+  if ($('#btnJugar')) $('#btnJugar').hidden = modoJuego === 'online';
   pintarArroyo();
   if ($('#opcLoca')) $('#opcLoca').hidden = modoJuego !== 'batalla';
   document.querySelectorAll('#rivales .soloLoca').forEach(b => { b.hidden = modoJuego !== 'batalla'; });
@@ -2934,5 +2962,123 @@ if (location.hash === '#prueba'){
 <script src="emociones.js"></script>
 <script src="narrador.js"></script>
 <script src="nivel.js"></script>
+<script src="online.js"></script>
+<script>
+// Lógica de interfaz para el Modo Online
+(() => {
+  const btnCrear = document.getElementById('btnCrearSala');
+  const btnUnirse = document.getElementById('btnUnirseSala');
+  const btnIniciar = document.getElementById('btnIniciarOnline');
+  const inpNombre = document.getElementById('onlineNombre');
+  const inpCodigo = document.getElementById('onlineCodigo');
+  const infoSala = document.getElementById('onlineSalaInfo');
+  const lblCodigo = document.getElementById('onlineSalaCodigo');
+  const listaJ = document.getElementById('onlineListaJugadores');
+  const esperaMsg = document.getElementById('onlineEsperaMsg');
+
+  try {
+    inpNombre.value = localStorage.getItem('chiras-nombre-online') || 'Jugador ' + Math.floor(1 + Math.random()*99);
+  } catch(e){}
+
+  inpNombre.addEventListener('change', () => {
+    try { localStorage.setItem('chiras-nombre-online', inpNombre.value.trim()); } catch(e){}
+  });
+
+  btnCrear.addEventListener('click', () => {
+    const nom = inpNombre.value.trim() || 'Jugador 1';
+    window.ChirasOnline.crearSala(nom, 'clasico');
+  });
+
+  btnUnirse.addEventListener('click', () => {
+    const cod = inpCodigo.value.trim().toUpperCase();
+    if (!cod) { alert('Ingrese un código de sala'); return; }
+    const nom = inpNombre.value.trim() || 'Jugador 2';
+    window.ChirasOnline.unirseSala(cod, nom);
+  });
+
+  btnIniciar.addEventListener('click', () => {
+    window.ChirasOnline.iniciarPartida();
+  });
+
+  window.ChirasOnline.on('onSalaActualizada', (data) => {
+    infoSala.hidden = false;
+    lblCodigo.textContent = data.roomId;
+    listaJ.innerHTML = '';
+    const miP = window.ChirasOnline.getMiJugador();
+    const jugadores = data.jugadores || [];
+
+    jugadores.forEach(j => {
+      const d = document.createElement('div');
+      d.style.display = 'flex';
+      d.style.alignItems = 'center';
+      d.style.gap = '8px';
+      d.style.fontSize = '15px';
+      d.style.padding = '4px 0';
+      const esYo = miP && j.id === miP.id;
+      d.innerHTML = `<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#${j.color.toString(16).padStart(6,'0')}"></span>
+                     <b>${j.nombre}</b> ${esYo ? '<span style="color:#5cff8a">(Usted)</span>' : ''} ${j.isHost ? '<span style="color:var(--amarillo)">👑 Creador</span>' : ''}`;
+      listaJ.appendChild(d);
+    });
+
+    if (miP && miP.isHost) {
+      if (jugadores.length >= 2) {
+        btnIniciar.hidden = false;
+        esperaMsg.textContent = '¡Listos para jugar! Pulse el botón para comenzar.';
+      } else {
+        btnIniciar.hidden = true;
+        esperaMsg.textContent = 'Esperando a que se una al menos 1 contrincante...';
+      }
+    } else {
+      btnIniciar.hidden = true;
+      esperaMsg.textContent = 'Esperando a que el anfitrión inicie la partida...';
+    }
+  });
+
+  window.ChirasOnline.on('onPartidaIniciada', (data) => {
+    console.log('Partida online iniciada con jugadores:', data.jugadores);
+    document.getElementById('menu').hidden = true;
+    
+    // Iniciar el juego en el cliente
+    const nucleo = window.ChirasNucleo;
+    if (nucleo) {
+      nucleo.initAudio();
+      const miP = window.ChirasOnline.getMiJugador();
+      
+      // Armar la lista de jugadores remotos
+      const serieRemota = data.jugadores.map(rem => {
+        const esMio = miP && rem.id === miP.id;
+        return {
+          nombre: rem.nombre,
+          color: rem.color,
+          ia: false,
+          humano: esMio, // Solo controlamos nuestro propio jugador localmente
+          remotoId: rem.id,
+          bolsa: ['agua', 'botella', 'ojo', 'lechera', 'tigre', 'marina'],
+          bola: null
+        };
+      });
+
+      // Sobreescribir serie y arrancar
+      window.__serieOnline = serieRemota;
+      nucleo.aviso('¡Partida Online en Vivo!\nTodos a la raya');
+      
+      // Disparar inicio en el núcleo
+      if (typeof window.__clasico !== 'undefined') {
+        // Enlazar sincronización de tiro
+      }
+    }
+  });
+
+  window.ChirasOnline.on('onAccionRemota', (data) => {
+    console.log('Acción remota recibida:', data);
+    // Sincronizar tiro remoto o cantos
+    if (data.accion === 'TIRO' && window.__clasico) {
+      window.__clasico.tirar(data.detalles.ang, data.detalles.fuerza);
+    } else if (data.accion === 'CANTO' && window.__clasico) {
+      // aplicar canto remoto
+    }
+  });
+})();
+</script>
 </body>
 </html>
