@@ -229,6 +229,13 @@ body.conMapa .hud{padding-left:calc(max(8px,env(safe-area-inset-left,0px)) + 112
       <h2>🌐 Multijugador Online en Tiempo Real</h2>
       <p class="nota">Juegue en vivo contra amigos desde cualquier celular o computador a través de internet.</p>
       <label style="display:flex;flex-direction:column;gap:6px">
+        <span style="font-size:14px">Modalidad de juego:</span>
+        <select id="onlineModoJuego" style="font:inherit;font-size:15px;padding:8px 12px;border-radius:10px;border:2px solid rgba(247,234,208,.3);background:var(--tierra-2);color:var(--crema)">
+          <option value="clasico">🎯 Clásico (Por turnos tradicionales y cantos)</option>
+          <option value="batalla">🔥 Batalla a la loca (Comer y Cohete)</option>
+        </select>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
         <span style="font-size:14px">Su apodo:</span>
         <input type="text" id="onlineNombre" maxlength="12" placeholder="Su nombre" style="font:inherit;font-size:16px;padding:8px 12px;border-radius:10px;border:2px solid rgba(247,234,208,.3);background:var(--tierra-2);color:var(--crema)">
       </label>
@@ -3001,9 +3008,11 @@ if (location.hash === '#prueba'){
 
   btnCrear.addEventListener('click', () => {
     const nom = inpNombre.value.trim() || 'Jugador 1';
+    const selModo = document.getElementById('onlineModoJuego');
+    const modo = selModo ? selModo.value : 'clasico';
     btnCrear.disabled = true;
     btnCrear.textContent = '⏳ Creando sala...';
-    window.ChirasOnline.crearSala(nom, 'clasico');
+    window.ChirasOnline.crearSala(nom, modo);
   });
 
   btnUnirse.addEventListener('click', () => {
