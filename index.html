@@ -1322,10 +1322,15 @@ addEventListener('keydown', e => {
 //  - Se puede cantar en cualquier momento. El primero que lo cante les anula los poderes a todos los demás
 //    (también su Nada de nada) hasta que termine el tiro que viene o el que está rodando.
 let nadaDe = null;
-function aplicarNada(por){
+function aplicarNada(por, esRemoto){
   if (!por || !por.vivo || !enPartida() || nadaDe || por.nada) return false;
   const otros = jugadores.filter(r => r !== por && r.vivo);
   if (!otros.length) return false;
+
+  if (modoJuego === 'online' && !esRemoto && window.ChirasOnline) {
+    window.ChirasOnline.enviarAccion('NADA', { jugadorId: por.remotoId });
+  }
+
   nadaDe = por; por.nadaTurno = true; nadaHasta = reloj + LIBRE.duraNada;
   if (ganchos.alNada) ganchos.alNada(por);   // solo para el narrador
   otros.forEach(r => { r.nada = true; });
@@ -1358,10 +1363,15 @@ function siguienteDefensor(){
 }
 
 // ---------- Cantos ----------
-function usarCanto(d, k, lado){
+function usarCanto(d, k, lado, esRemoto){
   if (!(d.cantos[k] > 0) || !d.vivo || !d.bola.activa) return false;
   if (d.nada && CANTOS_DEFENSIVOS.includes(k)) return false;   // le hicieron Nada de nada
   if ((k === 'barrera' || k === 'desquadris') && !referencia(d)) return false;
+  
+  if (modoJuego === 'online' && !esRemoto && window.ChirasOnline) {
+    window.ChirasOnline.enviarAccion('CANTO', { canto: k, lado: lado || 1, jugadorId: d.remotoId });
+  }
+
   d.cantos[k]--;
   if (estado === 'libre'){ d.recargaC = d.recargaC || {}; d.recargaC[k] = reloj + LIBRE.recargaCanto; d.defCanto = d.defCanto || {}; d.defCanto[k] = reloj; }
   if (window.ChirasAudio) window.ChirasAudio.voz('canto', `¡${CANTOS[k]}!`, [d]);
@@ -1652,10 +1662,17 @@ function resolverTiro(){
       }
       if (batallaLoca) jugadores.forEach((x, k) => { if (x !== s && !salidaLanzados.has(x)){ const b = x.bola; b.activa = true; b.enMano = false; b.mesh.visible = true; b.p.set(-1.2 + k * 0.8, R, 0.35); b.v.set(0, 0, 0); b.last.copy(b.p); salidaLanzados.add(x); } });
       salidaIdx = jugadores.length;
+      fase = 'juego';
+      orden = jugadores.slice().sort((a, b) => (a === s ? -1 : 1));
+      turno = 0;
     } else salidaIdx++;
     salidaLanzados.add(s);
     actualizarHUD();
     estado = 'espera';
+    if (encholo) {
+      setTimeout(turnoJuego, 1400);
+      return;
+    }
     if (batallaLoca) setTimeout(() => jugadores.some(x => !salidaLanzados.has(x)) ? abrirCarrera(true) : terminarSalida(), encholo ? 1400 : 700);
     else setTimeout(() => salidaIdx < jugadores.length ? turnoSalida() : terminarSalida(), encholo ? 1400 : 700);
     return;
@@ -2113,9 +2130,15 @@ function revisarArenasLibre(){
   });
 }
 
-// ---------- Sorteo del Clásico: quién lanza primero, segundo, tercero… ----------
+// Sorteo del Clásico: quién lanza primero, segundo, tercero…
 let ordenSalida = [];
 function sortear(listo){
+  if (modoJuego === 'online') {
+    // En online el orden de salida respeta exactamente los jugadores de la sala
+    ordenSalida = jugadores.slice();
+    listo();
+    return;
+  }
   ordenSalida = jugadores.slice().sort(() => Math.random() - 0.5);
   const capa = $('#sorteo'), rueda = $('#sorteoRueda'), lista = $('#sorteoLista');
   capa.hidden = false; lista.innerHTML = ''; rueda.textContent = '🎲';
@@ -2951,8 +2974,14 @@ window.__clasico = {
   preparar(o){ tirador = o.tirador; fase = 'juego'; encholo = !!o.encholo; golpeados = new Set(o.golpeados || []); metidos = new Set(o.metidos || []); orden = jugadores.slice(); turno = 0; estado = 'rodando'; },
   resolver: () => resolverTiro(),
   nueva: () => nuevaPartida(), limpiar: () => limpiarDefensas(),
-  iniciarSerieCon: (arr) => { serie = arr; nuevaPartida(); },
-  usarCanto: (d, k) => usarCanto(d, k, 1), aplicarNada: a => aplicarNada(a), barreras: () => barreras,
+  iniciarSerieCon: (arr) => {
+    nPersonas = 1;
+    nRivales = 0;
+    modoJuego = 'online';
+    serie = arr;
+    nuevaPartida();
+  },
+  usarCanto: (d, k, l, r) => usarCanto(d, k, l, r), aplicarNada: (a, r) => aplicarNada(a, r), barreras: () => barreras,
   barrerasLista: () => barreras, quitarBoloncho: d => quitarBoloncho(d),
   turnoDe: j => { tirador = j; fase = 'juego'; orden = jugadores.slice(); turno = orden.indexOf(j); estado = 'apuntar'; ia = null; actualizarHUD(); },
   tirar: (ang, f, esRemoto) => tirar(ang, f, esRemoto), arenas: () => arenas, estado: () => estado,
@@ -3121,9 +3150,21 @@ if (location.hash === '#prueba'){
 
   window.ChirasOnline.on('onAccionRemota', (data) => {
     console.log('Acción remota recibida:', data);
-    // Sincronizar tiro remoto
-    if (data.accion === 'TIRO' && window.__clasico) {
-      window.__clasico.tirar(data.detalles.ang, data.detalles.fuerza, true);
+    const nucleo = window.__clasico;
+    if (!nucleo) return;
+
+    if (data.accion === 'TIRO') {
+      nucleo.tirar(data.detalles.ang, data.detalles.fuerza, true);
+    } else if (data.accion === 'CANTO') {
+      const j = nucleo.jugadores().find(x => x.remotoId === data.detalles.jugadorId);
+      if (j) {
+        nucleo.usarCanto(j, data.detalles.canto, data.detalles.lado, true);
+      }
+    } else if (data.accion === 'NADA') {
+      const j = nucleo.jugadores().find(x => x.remotoId === data.detalles.jugadorId);
+      if (j) {
+        nucleo.aplicarNada(j, true);
+      }
     }
   });
 })();
