@@ -394,6 +394,60 @@ body.hud-oculto #btnSonido{
   transform:scale(1.06);
 }
 
+/* Botones Arma Tira-Bolas y Bola Saltarina */
+#btnSaltarina{
+  position:fixed;
+  left:max(12px,env(safe-area-inset-left,0px));
+  bottom:calc(env(safe-area-inset-bottom,0px) + 168px);
+  z-index:11;
+  font-family:var(--display);
+  font-size:13px;
+  background:rgba(20,12,6,.85);
+  border:2.5px solid #ff9100;
+  color:#ffe0b2;
+  border-radius:18px;
+  padding:7px 12px;
+  display:flex;
+  align-items:center;
+  gap:5px;
+  cursor:pointer;
+  box-shadow:0 4px 14px rgba(0,0,0,.5);
+  touch-action:manipulation;
+  transition:all .2s ease;
+}
+#btnSaltarina.activo{
+  background:linear-gradient(135deg, #ff6d00, #e65100);
+  border-color:#fff;
+  color:#fff;
+  box-shadow:0 0 0 3px rgba(255,145,0,.6), 0 6px 18px rgba(0,0,0,.6);
+  transform:scale(1.06);
+}
+#btnTiraBolas{
+  position:fixed;
+  left:max(12px,env(safe-area-inset-left,0px));
+  bottom:calc(env(safe-area-inset-bottom,0px) + 216px);
+  z-index:11;
+  font-family:var(--display);
+  font-size:14px;
+  background:linear-gradient(135deg, #d50000, #b71c1c);
+  border:2.5px solid #ff5252;
+  color:#fff;
+  border-radius:18px;
+  padding:8px 14px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  cursor:pointer;
+  box-shadow:0 4px 16px rgba(213,0,0,.6);
+  touch-action:manipulation;
+  transition:all .2s ease;
+  animation:pulsoArma 1.5s infinite;
+}
+@keyframes pulsoArma{
+  0%,100%{ transform:scale(1); box-shadow:0 0 12px rgba(255,23,68,0.7); }
+  50%{ transform:scale(1.06); box-shadow:0 0 20px rgba(255,23,68,1); }
+}
+
 /* Selector / Control de Elevación de Flecha para Tiro en el Aire */
 #controlElevacionAire{
   position:fixed;
@@ -446,7 +500,9 @@ body.hud-oculto #btnSonido{
 
 <div id="toastTurno"></div>
 <button id="btnToggleHUD" type="button" aria-label="Limpiar pantalla para ver mejor">👁️ Pantalla limpia</button>
-<button id="btnTiroGlobo" type="button" hidden aria-label="Cambiar entre tiro raso y tiro elevado"><span>🎯</span>Tiro: Raso</button>
+<button id="btnTiroGlobo" type="button" hidden aria-label="Cambiar modo de tiro"><span>🎯</span>Tiro: Raso</button>
+<button id="btnSaltarina" type="button" hidden aria-label="Activar bola saltarina con rebote continuo"><span>🏀</span>Saltarina: OFF</button>
+<button id="btnTiraBolas" type="button" hidden aria-label="Arma tira bolas de combate"><span>🔫</span>Tira-Bolas</button>
 
 <!-- Silueta 2D de la mano realista preparando el tiro -->
 <div id="vistaManoTiro" hidden style="position:fixed;bottom:0;left:50%;transform:translateX(-50%);pointer-events:none;z-index:4;transition:all .15s ease-out">
@@ -853,11 +909,11 @@ const CUARTA = 0.6;
 const DESQ_CUARTAS = 2;      // el Desquadris corre la bola dos cuartas de lado           // una cuarta (meñique a pulgar) a escala del juego
 const BAR_L = 0.9;            // largo de la barrera
 const MIRA_CLASICA = false;   // sin línea de puntería en el clásico: todo a pulso
-const CANTOS_DEFENSIVOS = ['barrera', 'desquadris', 'ochera', 'carambola', 'arena', 'viento', 'boloncho', 'cohete', 'iman', 'escudo', 'nitro'];   // Nada de nada los anula todos
+const CANTOS_DEFENSIVOS = ['barrera', 'desquadris', 'ochera', 'carambola', 'arena', 'viento', 'boloncho', 'cohete', 'iman', 'escudo', 'trueno', 'nitro', 'congelar'];   // Nada de nada los anula todos
 const CANTOS = {
   barrera: 'Barrera', desquadris: 'Desquadris', ochera: 'Ochera muere', carambola: 'Carambola muere',
   arena: 'Arena movediza', viento: 'Viento', boloncho: 'Boloncho', cohete: 'Cohete',
-  iman: 'Imán', escudo: 'Escudo Neón', nitro: 'Nitro Fuego'
+  iman: 'Imán', escudo: 'Escudo Neón', trueno: 'Trueno', nitro: 'Nitro Fuego', congelar: 'Congelar'
 };
 const COLORES = [0xd7263d, 0x1f6fd1, 0xf2b705, 0x20a65a, 0xff7b2e, 0xb05cff, 0x2ee6d6, 0xff4fa3];
 const NOMBRES_IA = ['El Mono', 'La Flaca', 'Juancho', 'La Mona', 'El Tigre', 'Pecas', 'Toño'];
@@ -1462,7 +1518,16 @@ function pasoBola(b, dt, sim){
     b.p.addScaledVector(b.v, dt);
     if (b.p.y <= R){
       b.p.y = R;
-      if (b.v.y < -0.9){
+      if (b.esSaltarina){
+        // Bola saltarina: rebota elásticamente con gran energía continua
+        const f = Math.abs(b.v.y);
+        if (f > 0.4){
+          b.v.y = Math.max(3.2, f * 0.88); // Gran rebote continuo
+          if (!sim){ sfx.bote(b.v.y * 1.5); popupArcade('🏀 ¡BOING!', b.p.x, R + 0.5, b.p.z, '#ff9100'); }
+        } else {
+          b.v.y = 0;
+        }
+      } else if (b.v.y < -0.9){
         const f = -b.v.y;
         b.v.y = f * 0.32; b.v.x *= 0.72; b.v.z *= 0.72;
         if (!sim) sfx.bote(f);
@@ -1599,6 +1664,12 @@ function ponerVelocidad(b, ang, vel, modoTiro){
     const vY = -0.25 * (MAXV - vel * 0.4);
     b.gravedadFlecha = 0.85;
     b.v.set(d.x * vH, vY, d.z * vH);
+  } else if (modoTiro === 'saltarina'){
+    // Bola Saltarina: sale elevada y al golpear el suelo rebota con gran potencia elástica
+    b.esTorpedo = false;
+    b.esSaltarina = true;
+    b.p.y = R + 0.15;
+    b.v.set(d.x * vel * 0.9, Math.max(3.5, vel * 0.55), d.z * vel * 0.9);
   } else if (modoTiro === 'globo' || modoTiro === true){
     // Salida tradicional
     b.esTorpedo = false;
@@ -1669,7 +1740,7 @@ function nuevaPartida(){
     bola.anillo = new THREE.Mesh(geoAnillo, new THREE.MeshBasicMaterial({color: j.color, transparent: true, opacity: .9}));
     bola.anillo.rotation.x = -Math.PI / 2; bola.anillo.visible = false; scene.add(bola.anillo);
     bola.dueno = j; mesh.visible = false;
-    Object.assign(j, {bola, vivo: true, poder: false, cantos: {barrera: 1, desquadris: 1, ochera: 1, carambola: 1, arena: 1, viento: 1, boloncho: 1, cohete: 1}, nada: false, nadaTurno: false, boloncho: false, tragadas: []});
+    Object.assign(j, {bola, vivo: true, poder: false, cantos: {barrera: 1, desquadris: 1, ochera: 1, carambola: 1, arena: 1, viento: 1, boloncho: 1, cohete: 1, iman: 1, escudo: 1, trueno: 1, nitro: 1, congelar: 1}, nada: false, nadaTurno: false, boloncho: false, tragadas: []});
   });
   $('#escoger').hidden = true; $('#bolsaCapa').hidden = true;
   limpiarDefensas(); colaAvisos.length = 0;
@@ -1785,7 +1856,9 @@ const BARRA = [
   ['boloncho', '🔴', 'Boloncho'],
   ['iman', '🧲', 'Imán'],
   ['escudo', '🔮', 'Escudo'],
+  ['trueno', '⚡', 'Trueno'],
   ['nitro', '🔥', 'Nitro'],
+  ['congelar', '🧊', 'Hielo'],
   ['cohete', '🚀', 'Cohete'],
   ['nada', '🚫', 'Nada']
 ];
@@ -2211,7 +2284,7 @@ function limpiarDefensas(){
     j.nada = false; j.nadaTurno = false;
     j.cantos = {
       barrera: 1, desquadris: 1, ochera: 1, carambola: 1, arena: 1, viento: 1, boloncho: 1, cohete: 1,
-      iman: 1, escudo: 1, nitro: 1
+      iman: 1, escudo: 1, trueno: 1, nitro: 1, congelar: 1
     };
   });
   arenas.forEach(a => scene.remove(a.mesh)); arenas = [];
@@ -2256,7 +2329,7 @@ function tirar(ang, fuerza, esRemoto){
   golpeados = new Set(); metidos = new Set(); encholo = false; tiempoRodando = 0; poderAlTirar = !!tirador.poder; tocoFicha = false;
   arenas.forEach(a => { a.dentroAlTirar = Math.hypot(tirador.bola.p.x - a.x, tirador.bola.p.z - a.z) < ARENA_R; });
   
-  const tipoTiro = (fase === 'salida') ? 'globo' : tiroPorAire ? 'torpedo' : 'tierra';
+  const tipoTiro = (fase === 'salida') ? 'globo' : modoSaltarina ? 'saltarina' : tiroPorAire ? 'torpedo' : 'tierra';
   if (fase === 'salida'){ b.enMano = false; ponerVelocidad(b, ang, vel, 'globo'); }
   else {
     ponerVelocidad(b, ang, vel, tipoTiro);
@@ -2383,16 +2456,25 @@ function resolverTiro(){
     sfx.caza();
   } else if (s.poder){
     if (encholo) otraVez = true;   // con el poder, si se vuelve a encholar también sigue
-    // en la batalla, a las bolas grandes no se las pueden tragar (solo el Cohete las revienta)
-    const grandes = batallaLoca ? victimas.filter(v => (v.tragadas || []).length) : [];
-    if (grandes.length) msgs.push(`¡${grandes.map(v => v.nombre).join(' y ')} está muy grande! Solo el 🚀 Cohete la revienta`);
-    const comibles = victimas.filter(v => !grandes.includes(v));
-    if (comibles.length){
-      comibles.forEach(v => { v.vivo = false; v.poder = false; v.bola.activa = false; v.bola.mesh.visible = false; pasarCanica(v, s); });
-      if (batallaLoca){ comibles.forEach(v => s.tragadas.push({id: v.juega, nombre: v.nombre})); aplicarTamano(s); }
-      msgs.push(batallaLoca ? `¡${s.nombre} se tragó a ${comibles.map(v => v.nombre).join(' y ')}!` : `¡${s.nombre} cazó a ${comibles.map(v => v.nombre).join(' y ')}!`);
-      msgs.push(`+${comibles.length} canica${comibles.length > 1 ? 's' : ''} para ${s.nombre}: ${comibles.map(v => ESTILO[v.juega].nombre).join(', ')}`);
-      sfx.caza(); otraVez = true;
+    if (batallaLoca){
+      // En MODO BATALLA: No elimina al oponente pipiándolo/comiéndolo directamente.
+      // Le da el poder especial del arma Tira-Bolas para disparar ráfagas de canicas.
+      s.tieneArmaTiraBolas = true;
+      s.balasArma = (s.balasArma || 0) + 6;
+      msgs.push(`🔫 ¡${s.nombre} tiene el TIRA-BOLAS!`);
+      msgs.push(`¡Arma cargada con ${s.balasArma} proyectiles!`);
+      sfx.poder();
+      popupArcade('🔫 ¡TIRA-BOLAS LISTO!', s.bola.p.x, R + 0.8, s.bola.p.z, '#ff1744');
+      otraVez = true;
+    } else {
+      const grandes = [];
+      const comibles = victimas.filter(v => !grandes.includes(v));
+      if (comibles.length){
+        comibles.forEach(v => { v.vivo = false; v.poder = false; v.bola.activa = false; v.bola.mesh.visible = false; pasarCanica(v, s); });
+        msgs.push(`¡${s.nombre} cazó a ${comibles.map(v => v.nombre).join(' y ')}!`);
+        msgs.push(`+${comibles.length} canica${comibles.length > 1 ? 's' : ''} para ${s.nombre}: ${comibles.map(v => ESTILO[v.juega].nombre).join(', ')}`);
+        sfx.caza(); otraVez = true;
+      }
     }
   } else {
     const robados = victimas.filter(v => v.poder);
@@ -2706,11 +2788,20 @@ function resolverLibre(j){
     eliminarLibre(j, castigo);
     msgs.push(`¡${castOch ? 'Ochera muere' : 'Carambola muere'}! ${j.nombre} ${castOch ? motivoOchera : 'le pegó a dos'} y quedó por fuera`);
   } else if (j.poder){
-    comidos = victimas.filter(v => v._comido === j);
-    comidos.forEach(v => { eliminarLibre(v, j); j.tragadas.push({id: v.juega, nombre: v.nombre}); });
-    if (comidos.length){ aplicarTamano(j); msgs.push(`¡${j.nombre} se tragó a ${comidos.map(v => v.nombre).join(' y ')}!`); }
-    const grandes = victimas.filter(v => (v.tragadas || []).length && v.vivo);
-    if (grandes.length) msgs.push(`¡${grandes[0].nombre} está muy grande! Solo el 🚀 Cohete la revienta`);
+    if (batallaLoca){
+      j.tieneArmaTiraBolas = true;
+      j.balasArma = (j.balasArma || 0) + 6;
+      msgs.push(`🔫 ¡${j.nombre} activó el TIRA-BOLAS!`);
+      msgs.push(`¡${j.balasArma} proyectiles listos para disparar!`);
+      sfx.poder();
+      popupArcade('🔫 ¡TIRA-BOLAS!', j.bola.p.x, R + 0.8, j.bola.p.z, '#ff1744');
+    } else {
+      comidos = victimas.filter(v => v._comido === j);
+      comidos.forEach(v => { eliminarLibre(v, j); j.tragadas.push({id: v.juega, nombre: v.nombre}); });
+      if (comidos.length){ aplicarTamano(j); msgs.push(`¡${j.nombre} se tragó a ${comidos.map(v => v.nombre).join(' y ')}!`); }
+      const grandes = victimas.filter(v => (v.tragadas || []).length && v.vivo);
+      if (grandes.length) msgs.push(`¡${grandes[0].nombre} está muy grande! Solo el 🚀 Cohete la revienta`);
+    }
   } else {
     const robados = victimas.filter(v => v.poder && v.vivo);
     if (robados.length){ robados.forEach(v => v.poder = false); robo = true; msgs.push(`¡${j.nombre} le quitó el poder a ${robados.map(v => v.nombre).join(' y ')}!`); }
@@ -2905,7 +2996,7 @@ function revancha(j, id){
   // vuelve sin ventajas: sin el poder ni lo que tenía
   Object.assign(j, {vivo: true, poder: false, nada: false, nadaTurno: false, tragadas: [], revanchas: (j.revanchas || 0) + 1,
     cantos: {barrera: 1, desquadris: 1, ochera: 1, carambola: 1, arena: 1, viento: 1, boloncho: 1, cohete: 1,
-             iman: 1, escudo: 1, nitro: 1}});
+             iman: 1, escudo: 1, trueno: 1, nitro: 1, congelar: 1}});
   defensas.ochera.delete(j); defensas.carambola.delete(j);
   aviso(`🔥 ¡La Revancha!\n${j.nombre} apuesta su ${ESTILO[id].nombre} y vuelve desde la raya`);
   if (ganchos.alRevancha) ganchos.alRevancha(j);
@@ -3413,8 +3504,91 @@ function mostrarToastTurno(j){
   toastTimer = setTimeout(() => { t.classList.remove('ver'); }, 1400);
 }
 
-// Variables para Tiro Elevado
+// Variables para Tiro Elevado, Bola Saltarina y Arma Tira-Bolas
 const ALTURA_FLECHA = 1.05; // Altura alta desde donde se dispara naturalmente
+let modoSaltarina = false;
+
+// Proyectiles del arma Tira-Bolas
+const proyectilesArma = [];
+const geoBalaArma = new THREE.SphereGeometry(R * 0.45, 12, 10);
+const matBalaArma = new THREE.MeshBasicMaterial({color: 0xff1744});
+
+function dispararTiraBolas(j){
+  if (!j || !j.vivo || !(j.balasArma > 0)) return;
+  j.balasArma--;
+  const b = j.bola;
+  const d = dirDe(apunta.ang || 0);
+  
+  // Crear mesh de la mini canica proyectil
+  const mesh = new THREE.Mesh(geoBalaArma, matBalaArma);
+  mesh.position.set(b.p.x + d.x * 0.4, R + 0.05, b.p.z + d.z * 0.4);
+  scene.add(mesh);
+
+  const velArma = 18.0;
+  proyectilesArma.push({
+    mesh,
+    x: mesh.position.x,
+    z: mesh.position.z,
+    vx: d.x * velArma,
+    vz: d.z * velArma,
+    dueno: j,
+    vida: 2.5
+  });
+
+  sfx.choque(12);
+  sacudirCamara(0.6);
+  popupArcade('💥 ¡FUEGO!', mesh.position.x, R + 0.4, mesh.position.z, '#ff1744');
+  aviso(`🔫 ¡Disparo Tira-Bolas! Quedan ${j.balasArma} proyectiles`);
+  actualizarBotonTiraBolas();
+}
+
+function actualizarProyectilesArma(dt){
+  for (let i = proyectilesArma.length - 1; i >= 0; i--){
+    const p = proyectilesArma[i];
+    p.vida -= dt;
+    p.x += p.vx * dt;
+    p.z += p.vz * dt;
+    p.mesh.position.set(p.x, R + 0.05, p.z);
+
+    // Revisar impacto contra rivales
+    jugadores.forEach(r => {
+      if (r !== p.dueno && r.vivo && r.bola.activa && !r.bola.enMano){
+        const dist = Math.hypot(r.bola.p.x - p.x, r.bola.p.z - p.z);
+        if (dist < (r.bola.radio || R) + R * 0.5){
+          // Impacto del proyectil de arma: empuja con fuerza y quita vida / canica
+          p.vida = 0;
+          r.bola.v.x += p.vx * 0.55;
+          r.bola.v.z += p.vz * 0.55;
+          sacudirCamara(1.2);
+          popupArcade('💥 ¡IMPACTO CRÍTICO!', r.bola.p.x, R + 0.6, r.bola.p.z, '#ff1744');
+          aviso(`💥 ¡El Tira-Bolas de ${p.dueno.nombre} impactó a ${r.nombre}!`);
+
+          // Si el oponente no tenía escudo, queda eliminado o pierde su canica
+          if (r.tieneEscudo){
+            r.tieneEscudo = false;
+            popupArcade('🛡️ ESCUDO ROTO', r.bola.p.x, R + 0.6, r.bola.p.z, '#00e5ff');
+          } else {
+            r.vivo = false;
+            r.bola.activa = false;
+            r.bola.mesh.visible = false;
+            pasarCanica(r, p.dueno);
+            aviso(`💀 ¡${r.nombre} fue reventado por el Tira-Bolas!`);
+            sfx.caza();
+            if (vivos().length <= 1){
+              estado = 'fin';
+              setTimeout(() => terminar(vivos()[0] || p.dueno), 1200);
+            }
+          }
+        }
+      }
+    });
+
+    if (p.vida <= 0 || Math.abs(p.x) > CANCHA.x || p.z < CANCHA.zMin || p.z > CANCHA.zMax){
+      scene.remove(p.mesh);
+      proyectilesArma.splice(i, 1);
+    }
+  }
+}
 
 function actualizarBotonGlobo(){
   const btn = $('#btnTiroGlobo');
@@ -3423,6 +3597,28 @@ function actualizarBotonGlobo(){
   btn.hidden = !enJuego;
   btn.classList.toggle('activo', tiroPorAire);
   btn.innerHTML = tiroPorAire ? '<span>🏹</span>Tiro: <b>ELEVADO</b>' : '<span>🎯</span>Tiro: <b>RASO</b>';
+  actualizarBotonSaltarina();
+  actualizarBotonTiraBolas();
+}
+
+function actualizarBotonSaltarina(){
+  const btn = $('#btnSaltarina');
+  if (!btn) return;
+  const enJuego = !$('#hud').hidden && estado === 'apuntar' && tirador && !tirador.ia;
+  btn.hidden = !enJuego;
+  btn.classList.toggle('activo', modoSaltarina);
+  btn.innerHTML = modoSaltarina ? '<span>🏀</span>Saltarina: <b>ACTIVA</b>' : '<span>🏀</span>Saltarina: <b>OFF</b>';
+}
+
+function actualizarBotonTiraBolas(){
+  const btn = $('#btnTiraBolas');
+  if (!btn) return;
+  const h = (tirador && tirador.humano && !tirador.ia) ? tirador : jugadores.find(j => j.humano && !j.ia);
+  const tieneArma = h && h.tieneArmaTiraBolas && (h.balasArma > 0) && estado !== 'menu';
+  btn.hidden = !tieneArma;
+  if (tieneArma){
+    btn.innerHTML = `<span>🔫</span>Tira-Bolas (<b>${h.balasArma}</b>)`;
+  }
 }
 function actualizarBotonVista(){ $('#btnVista').setAttribute('aria-pressed', vistaAerea ? 'true' : 'false'); }
 function ocultarPuntos(){
@@ -3849,6 +4045,19 @@ $('#btnTiroGlobo').addEventListener('click', () => {
   aviso(tiroPorAire ? '🏹 Tiro Elevado (Sale desde arriba hacia el objetivo)' : '🎯 Tiro Raso (Por la tierra)');
 });
 
+// Botón para Bola Saltarina (Rebota continuamente con elasticidad extrema)
+$('#btnSaltarina').addEventListener('click', () => {
+  modoSaltarina = !modoSaltarina;
+  actualizarBotonSaltarina();
+  aviso(modoSaltarina ? '🏀 Bola Saltarina ACTIVADA (Rebotes continuos en cadena)' : '🏀 Bola Saltarina DESACTIVADA');
+});
+
+// Botón Arma Tira-Bolas
+$('#btnTiraBolas').addEventListener('click', () => {
+  const h = (tirador && tirador.humano && !tirador.ia) ? tirador : jugadores.find(j => j.humano && !j.ia);
+  dispararTiraBolas(h);
+});
+
 // Salir al menú (hay que tocar dos veces para no perder la ronda sin querer)
 let confirmaMenu = 0;
 $('#btnMenu').addEventListener('click', () => {
@@ -4172,6 +4381,7 @@ function bucle(ahora){
 
   actualizarEscudos();
   actualizarEstelas(dt);
+  actualizarProyectilesArma(dt);
 
   marca.position.y = 1.3 + Math.sin(reloj * 2.5) * 0.12; marca.rotation.y += dt * 1.5;
   camara(dt);
