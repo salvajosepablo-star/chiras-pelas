@@ -360,6 +360,13 @@ body.hud-oculto #btnSonido{
 <button id="btnToggleHUD" type="button" aria-label="Limpiar pantalla para ver mejor">👁️ Pantalla limpia</button>
 <button id="btnTiroGlobo" type="button" hidden aria-label="Cambiar entre tiro por tierra y tiro por el aire"><span>🏹</span>Tiro: Rasante</button>
 
+<!-- Silueta 2D de la mano realista preparando el tiro -->
+<div id="vistaManoTiro" hidden style="position:fixed;bottom:0;left:50%;transform:translateX(-50%);pointer-events:none;z-index:4;transition:all .15s ease-out">
+  <svg id="svgMano" width="220" height="180" viewBox="0 0 220 180" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 6px 14px rgba(0,0,0,0.6))">
+    <!-- El dibujo de la mano se genera dinámicamente según la forma seleccionada -->
+  </svg>
+</div>
+
 <div class="hud" id="hud" hidden>
   <div class="turno"><b id="turnoNombre">Salida</b><span id="turnoInfo">Tire hacia el hueco</span></div>
   <div class="chips" id="chips"></div>
@@ -418,6 +425,7 @@ body.hud-oculto #btnSonido{
     <div class="rivales" id="modos">
       <button type="button" data-m="clasico" aria-pressed="true">Clásico</button>
       <button type="button" data-m="copia" aria-pressed="false" style="border-color:#ff9800;color:#ffb74d">⭐ Copia</button>
+      <button type="button" data-m="taller" aria-pressed="false" style="border-color:#e040fb;color:#ea80fc">🎨 Taller Canicas</button>
       <button type="button" data-m="batalla" aria-pressed="false">Batalla</button>
       <button type="button" data-m="arroyuelo" aria-pressed="false">Arroyuelo</button>
       <button type="button" data-m="online" aria-pressed="false" style="border-color:#20a65a;color:#5cff8a">🌐 Online</button>
@@ -463,6 +471,65 @@ body.hud-oculto #btnSonido{
         <li>Potencia exacta: deje la bola dentro del círculo.</li>
       </ol>
       <p class="nota">Cada reto da hasta 3 estrellas. Completar la academia desbloquea una canica legendaria.</p>
+    </div>
+    <div class="grupo" id="opcTaller" hidden>
+      <div style="background:rgba(224,64,251,0.15);border:2px solid #e040fb;border-radius:14px;padding:14px;margin-bottom:10px">
+        <h3 style="margin:0 0 6px;color:#ea80fc;font-family:var(--display);font-size:20px">🎨 Taller de Diseño de Canicas</h3>
+        <p class="nota" style="margin:0;color:#fff">¡Personalice su propia bola personalizada para jugar en cualquier modo! Elija texturas, colores, núcleos mágicos y acabados.</p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;background:var(--tierra-2);border-radius:14px;padding:12px;border:2px solid rgba(247,234,208,.2)">
+        <div style="width:110px;height:110px;border-radius:50%;background:#111;box-shadow:0 6px 18px rgba(0,0,0,.6);margin-bottom:8px;position:relative;overflow:hidden;border:3px solid var(--amarillo)" id="tallerVistaPreviaWrap">
+          <canvas id="tallerPreviewCanvas" width="110" height="110" style="width:100%;height:100%"></canvas>
+        </div>
+        <b id="tallerNombreBola" style="font-family:var(--display);font-size:18px;color:var(--amarillo)">Mi Canica Personalizada</b>
+      </div>
+
+      <label style="display:flex;flex-direction:column;gap:4px">
+        <span style="font-size:14px">Nombre de la Canica:</span>
+        <input type="text" id="tallerNombreInput" maxlength="16" value="Canica Galáctica" style="font:inherit;font-size:15px;padding:8px 12px;border-radius:10px;border:2px solid rgba(247,234,208,.3);background:var(--tierra-2);color:var(--crema)">
+      </label>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label style="display:flex;flex-direction:column;gap:4px">
+          <span style="font-size:13px">Estilo Base:</span>
+          <select id="tallerTipo" style="font:inherit;padding:8px;border-radius:10px;background:var(--tierra-2);color:var(--crema);border:2px solid rgba(247,234,208,.3)">
+            <option value="remolino">Remolino Clásico</option>
+            <option value="galaxia">Galaxia Neón</option>
+            <option value="chispas">Chispas de Oro / Cristal</option>
+            <option value="burbujas">Burbujas Acuáticas</option>
+            <option value="perla">Perla Nacarada</option>
+            <option value="rayas">Tigre Rayada</option>
+          </select>
+        </label>
+
+        <label style="display:flex;flex-direction:column;gap:4px">
+          <span style="font-size:13px">Color Principal:</span>
+          <input type="color" id="tallerColor1" value="#1a237e" style="width:100%;height:40px;border-radius:10px;border:2px solid rgba(247,234,208,.3);background:transparent;cursor:pointer">
+        </label>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label style="display:flex;flex-direction:column;gap:4px">
+          <span style="font-size:13px">Color Franja / Efecto:</span>
+          <input type="color" id="tallerColor2" value="#00e5ff" style="width:100%;height:40px;border-radius:10px;border:2px solid rgba(247,234,208,.3);background:transparent;cursor:pointer">
+        </label>
+        <label style="display:flex;flex-direction:column;gap:4px">
+          <span style="font-size:13px">Color Secundario:</span>
+          <input type="color" id="tallerColor3" value="#ffeb3b" style="width:100%;height:40px;border-radius:10px;border:2px solid rgba(247,234,208,.3);background:transparent;cursor:pointer">
+        </label>
+      </div>
+
+      <label style="display:flex;flex-direction:column;gap:4px">
+        <span style="font-size:13px">Estilo de Agarre de la Mano al Tirar:</span>
+        <select id="tallerFormaMano" style="font:inherit;padding:8px;border-radius:10px;background:var(--tierra-2);color:var(--crema);border:2px solid rgba(247,234,208,.3)">
+          <option value="pulgar">👍 Agarre Tradicional (Dedo Pulgar de Impulso)</option>
+          <option value="indice">✌️ Uñada Clásica (Apoyo en Índice y Empuje de Pulgar)</option>
+          <option value="anillo">👌 Tiro de Precisión (Anillo con Dedo Medio)</option>
+        </select>
+      </label>
+
+      <button type="button" class="jugar" id="tallerBtnGuardar" style="font-size:18px;padding:12px;background:#e040fb;box-shadow:0 4px 0 #8e00a8;margin-top:6px">💾 Guardar y Usar mi Canica</button>
     </div>
     <div class="grupo" id="opcCopia" hidden>
       <div style="background:rgba(255,152,0,0.15);border:2px solid #ff9800;border-radius:12px;padding:12px;margin-bottom:12px">
@@ -1334,7 +1401,8 @@ function bolsaInicial(){
   // más probable sacar canicas baratas
   const pesosE = ESTILOS.map(e => 1 / Math.pow(e.valor, 0.9)), tot = pesosE.reduce((a, b) => a + b, 0);
   const b = [];
-  for (let i = 0; i < 6; i++){ let x = Math.random() * tot, k = 0; while (x > pesosE[k]) x -= pesosE[k++]; b.push(ESTILOS[Math.min(k, ESTILOS.length - 1)].id); }
+  if (canicaCustom && canicaCustom.nombre) b.push('custom');
+  for (let i = 0; i < (canicaCustom && canicaCustom.nombre ? 5 : 6); i++){ let x = Math.random() * tot, k = 0; while (x > pesosE[k]) x -= pesosE[k++]; b.push(ESTILOS[Math.min(k, ESTILOS.length - 1)].id); }
   return b;
 }
 function nuevaSerie(){
@@ -3120,11 +3188,12 @@ function pintarMenu(){
   // la Batalla y la Copia son variantes del Clásico: usan las mismas opciones (y sus recuadros de reglas)
   $('#opcClasico').hidden = !(modoJuego === 'clasico' || modoJuego === 'batalla' || modoJuego === 'arroyuelo'); $('#opcBatalla').hidden = true;
   if ($('#opcCopia')) $('#opcCopia').hidden = modoJuego !== 'copia';
+  if ($('#opcTaller')) $('#opcTaller').hidden = modoJuego !== 'taller';
   if ($('#opcArroyo')) $('#opcArroyo').hidden = modoJuego !== 'arroyuelo';
   if ($('#opcOnline')) $('#opcOnline').hidden = modoJuego !== 'online';
-  if ($('#btnJugar')) $('#btnJugar').hidden = modoJuego === 'online';
-  // En modo online ocultamos opciones locales como dificultad de bots, personas y rivales
-  const ocultarLocal = modoJuego === 'online' || modoJuego === 'academia';
+  if ($('#btnJugar')) $('#btnJugar').hidden = modoJuego === 'online' || modoJuego === 'taller';
+  // En modo online u otros ocultamos opciones locales como dificultad de bots, personas y rivales
+  const ocultarLocal = modoJuego === 'online' || modoJuego === 'academia' || modoJuego === 'taller';
   const h2s = document.querySelectorAll('#menu .tarjeta h2');
   h2s.forEach(h => {
     const t = h.textContent;
@@ -3183,6 +3252,203 @@ $('#rivales').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b || b.disabled) return;
   nRivales = +b.dataset.n; pintarMenu(); guardarMenu();
 });
+// ==========================================
+// TALLER DE DISEÑO DE CANICAS Y MANOS DE TIRO
+// ==========================================
+let canicaCustom = {
+  nombre: 'Canica Galáctica',
+  tipo: 'remolino',
+  color1: '#1a237e',
+  color2: '#00e5ff',
+  color3: '#ffeb3b',
+  formaMano: 'pulgar'
+};
+
+try {
+  const guardada = JSON.parse(localStorage.getItem('chiras-canica-custom') || 'null');
+  if (guardada) Object.assign(canicaCustom, guardada);
+} catch (e) {}
+
+function actualizarEstiloCustom(){
+  ESTILO['custom'] = {
+    id: 'custom',
+    nombre: canicaCustom.nombre || 'Personalizada',
+    valor: 2500,
+    tipo: 'opaca',
+    patron: canicaCustom.tipo,
+    fondo: canicaCustom.color1,
+    bandas: [canicaCustom.color2, canicaCustom.color3, '#ffffff']
+  };
+  delete cacheTex['custom'];
+  delete cacheMat['custom'];
+  delete cacheIcono['custom'];
+}
+actualizarEstiloCustom();
+
+// Render de la previsualización de la canica en el Taller
+function renderPreviewTaller(){
+  const cv = $('#tallerPreviewCanvas');
+  if (!cv) return;
+  const ctx = cv.getContext('2d'), w = cv.width, h = cv.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.save();
+  ctx.beginPath(); ctx.arc(w/2, h/2, w/2 - 2, 0, Math.PI * 2); ctx.clip();
+  // Fondo
+  ctx.fillStyle = canicaCustom.color1;
+  ctx.fillRect(0, 0, w, h);
+
+  // Decoraciones según el tipo elegido
+  if (canicaCustom.tipo === 'galaxia'){
+    for (let i = 0; i < 60; i++){
+      ctx.fillStyle = i % 2 === 0 ? canicaCustom.color2 : canicaCustom.color3;
+      ctx.fillRect(Math.random() * w, Math.random() * h, 2.5, 2.5);
+    }
+    const gr = ctx.createLinearGradient(0, 0, w, h);
+    gr.addColorStop(0, canicaCustom.color2); gr.addColorStop(1, 'transparent');
+    ctx.fillStyle = gr; ctx.globalAlpha = 0.5; ctx.fillRect(0, 0, w, h);
+  } else if (canicaCustom.tipo === 'chispas'){
+    for (let i = 0; i < 90; i++){
+      ctx.fillStyle = i % 3 === 0 ? '#ffffff' : canicaCustom.color2;
+      ctx.fillRect(Math.random() * w, Math.random() * h, 3, 3);
+    }
+  } else if (canicaCustom.tipo === 'burbujas'){
+    for (let i = 0; i < 18; i++){
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(15 + Math.random() * (w - 30), 15 + Math.random() * (h - 30), 3 + Math.random() * 8, 0, Math.PI * 2); ctx.stroke();
+    }
+  } else if (canicaCustom.tipo === 'rayas'){
+    ctx.strokeStyle = canicaCustom.color2; ctx.lineWidth = 7;
+    for (let x = -10; x < w + 20; x += 18){
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + 20, h); ctx.stroke();
+    }
+  } else {
+    // Remolino clásico
+    ctx.strokeStyle = canicaCustom.color2; ctx.lineWidth = 12; ctx.beginPath();
+    ctx.arc(w/2 - 10, h/2, 35, 0, Math.PI * 1.5); ctx.stroke();
+    ctx.strokeStyle = canicaCustom.color3; ctx.lineWidth = 8; ctx.beginPath();
+    ctx.arc(w/2 + 8, h/2, 28, Math.PI * 0.4, Math.PI * 1.8); ctx.stroke();
+  }
+
+  // Brillo esférico de vidrio
+  let gr = ctx.createRadialGradient(w * 0.35, h * 0.3, 2, w * 0.35, h * 0.3, w * 0.4);
+  gr.addColorStop(0, 'rgba(255,255,255,0.85)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.1)'); gr.addColorStop(1, 'rgba(0,0,0,0.5)');
+  ctx.fillStyle = gr; ctx.globalAlpha = 1; ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+}
+
+// Dibujo vectorial SVG de la mano y postura de tiro según la imagen histórica
+function generarSVGMano(forma, fuerza = 0){
+  const f = Math.min(1, Math.max(0, fuerza));
+  const retroceso = f * 18;
+  const piel = '#e8beac', sombraPiel = '#ba8a75', linea = '#2a1a12';
+
+  if (forma === 'indice'){
+    // Uñada clásica (con apoyo del índice y uña del pulgar lista)
+    return `
+      <!-- Brazo / Muñeca -->
+      <path d="M 190 180 C 185 130 170 110 145 95" stroke="${linea}" stroke-width="4" stroke-linecap="round" fill="none"/>
+      <!-- Palma -->
+      <path d="M 60 110 C 80 80 130 85 155 110 L 175 180 L 70 180 Z" fill="${piel}" stroke="${linea}" stroke-width="3"/>
+      <!-- Dedos de apoyo al suelo (medio, anular, meñique) -->
+      <path d="M 85 105 C 75 135 68 155 60 175" stroke="${linea}" stroke-width="6" stroke-linecap="round" fill="${piel}"/>
+      <path d="M 105 105 C 100 135 95 155 90 175" stroke="${linea}" stroke-width="6" stroke-linecap="round" fill="${piel}"/>
+      <path d="M 125 105 C 122 135 120 155 118 175" stroke="${linea}" stroke-width="6" stroke-linecap="round" fill="${piel}"/>
+      <!-- Dedo Índice que apunta o sostiene -->
+      <path d="M 60 100 C 40 85 20 80 5 85 C 0 92 15 100 35 105 Z" fill="${piel}" stroke="${linea}" stroke-width="3"/>
+      <!-- Dedo Pulgar tensado hacia atrás con la fuerza -->
+      <g transform="translate(${-retroceso}, 0)">
+        <path d="M 75 90 C 60 70 48 55 58 45 C 68 35 78 50 85 70 Z" fill="${piel}" stroke="${linea}" stroke-width="3"/>
+        <ellipse cx="60" cy="50" rx="6" ry="4" fill="#fff" opacity="0.6"/>
+        <!-- Canica en la mano -->
+        <circle cx="48" cy="78" r="14" fill="${canicaCustom.color1}" stroke="${linea}" stroke-width="2.5"/>
+        <circle cx="44" cy="74" r="4" fill="#fff" opacity="0.8"/>
+      </g>
+    `;
+  } else if (forma === 'anillo'){
+    // Tiro de precisión en anillo (agarre pulgar-medio)
+    return `
+      <!-- Brazo -->
+      <path d="M 180 180 C 175 120 155 95 130 90" stroke="${linea}" stroke-width="4" fill="none"/>
+      <!-- Mano en arco -->
+      <path d="M 70 100 C 90 75 140 80 160 120 L 170 180 L 80 180 Z" fill="${piel}" stroke="${linea}" stroke-width="3"/>
+      <!-- Dedo Índice doblado -->
+      <path d="M 90 90 C 70 85 55 95 65 115 C 75 120 85 105 95 100 Z" fill="${sombraPiel}" stroke="${linea}" stroke-width="3"/>
+      <!-- Dedo Medio formando anillo con el pulgar -->
+      <g transform="translate(${-retroceso * 0.8}, ${retroceso * 0.3})">
+        <path d="M 85 85 C 65 65 45 68 55 88 C 65 95 80 92 90 85 Z" fill="${piel}" stroke="${linea}" stroke-width="3"/>
+        <!-- Pulgar presionando -->
+        <path d="M 75 110 C 60 95 45 80 55 70 C 65 65 75 85 85 105 Z" fill="${piel}" stroke="${linea}" stroke-width="3"/>
+        <!-- Canica -->
+        <circle cx="58" cy="80" r="14" fill="${canicaCustom.color1}" stroke="${linea}" stroke-width="2.5"/>
+        <circle cx="54" cy="76" r="4" fill="#fff" opacity="0.8"/>
+      </g>
+    `;
+  } else {
+    // Agarre tradicional con pulgar de resorte
+    return `
+      <!-- Muñeca y Palma -->
+      <path d="M 190 180 C 180 125 150 95 120 90 L 60 105 L 80 180 Z" fill="${piel}" stroke="${linea}" stroke-width="3"/>
+      <!-- Dedos doblados en puño de apoyo -->
+      <path d="M 60 105 C 45 120 40 140 45 165" stroke="${linea}" stroke-width="8" stroke-linecap="round" fill="none"/>
+      <path d="M 75 102 C 62 120 58 140 65 165" stroke="${linea}" stroke-width="8" stroke-linecap="round" fill="none"/>
+      <path d="M 90 100 C 80 120 78 140 85 165" stroke="${linea}" stroke-width="8" stroke-linecap="round" fill="none"/>
+      <!-- Índice que sostiene la bola -->
+      <path d="M 60 100 C 45 88 35 75 50 65 C 65 60 70 75 80 95 Z" fill="${sombraPiel}" stroke="${linea}" stroke-width="3"/>
+      <!-- Pulgar palanqueando hacia atrás -->
+      <g transform="translate(${-retroceso}, 0)">
+        <path d="M 80 95 C 65 75 48 45 62 35 C 75 25 88 50 95 80 Z" fill="${piel}" stroke="${linea}" stroke-width="3"/>
+        <ellipse cx="64" cy="42" rx="5" ry="3" fill="#fff" opacity="0.6"/>
+        <!-- Canica lista para salir disparada -->
+        <circle cx="48" cy="75" r="14" fill="${canicaCustom.color1}" stroke="${linea}" stroke-width="2.5"/>
+        <circle cx="44" cy="71" r="4" fill="#fff" opacity="0.8"/>
+      </g>
+    `;
+  }
+}
+
+function actualizarManoTiroVisual(){
+  const wrap = $('#vistaManoTiro');
+  const svg = $('#svgMano');
+  if (!wrap || !svg) return;
+  const enApunte = !$('#hud').hidden && estado === 'apuntar' && tirador && !tirador.ia;
+  if (!enApunte){
+    wrap.hidden = true;
+    return;
+  }
+  wrap.hidden = false;
+  svg.innerHTML = generarSVGMano(canicaCustom.formaMano, apunta.fuerza || 0);
+  wrap.style.transform = `translateX(-50%) translateY(${Math.round(apunta.fuerza * 15)}px) scale(${1 + apunta.fuerza * 0.1})`;
+}
+
+// Listeners de la interfaz del taller
+$('#tallerNombreInput').addEventListener('input', e => {
+  canicaCustom.nombre = e.target.value.trim() || 'Mi Canica';
+  $('#tallerNombreBola').textContent = canicaCustom.nombre;
+  renderPreviewTaller();
+});
+$('#tallerTipo').addEventListener('change', e => { canicaCustom.tipo = e.target.value; renderPreviewTaller(); });
+$('#tallerColor1').addEventListener('input', e => { canicaCustom.color1 = e.target.value; renderPreviewTaller(); });
+$('#tallerColor2').addEventListener('input', e => { canicaCustom.color2 = e.target.value; renderPreviewTaller(); });
+$('#tallerColor3').addEventListener('input', e => { canicaCustom.color3 = e.target.value; renderPreviewTaller(); });
+$('#tallerFormaMano').addEventListener('change', e => { canicaCustom.formaMano = e.target.value; });
+
+$('#tallerBtnGuardar').addEventListener('click', () => {
+  actualizarEstiloCustom();
+  try { localStorage.setItem('chiras-canica-custom', JSON.stringify(canicaCustom)); } catch(e){}
+  aviso(`✨ ¡Canica "${canicaCustom.nombre}" guardada!\nAhora es su canica principal de juego.`);
+  // Si tenemos serie activa, asignarla al humano
+  const h = serie.find(j => j.humano && !j.ia);
+  if (h){
+    if (!h.bolsa.includes('custom')) h.bolsa.unshift('custom');
+    h.juega = 'custom';
+  }
+  modoJuego = 'copia';
+  pintarMenu();
+  guardarMenu();
+});
+
+setTimeout(renderPreviewTaller, 300);
+
 $('#btnJugar').addEventListener('click', () => {
   initAudio();
   $('#btnToggleHUD').hidden = false;
@@ -3489,6 +3755,7 @@ function bucle(ahora){
     $('#fuerza').style.transform = `translateY(-50%) translateX(${sh.toFixed(2)}px)`;
   } else if (!apunta.arrastrando){ apunta.temblor = 0; $('#fuerza').style.transform = ''; }
   pintarBarra();
+  actualizarManoTiroVisual();
 
   // rodar las bolas visualmente (también las canicas del arroyuelo)
   fichas.forEach(f => {
