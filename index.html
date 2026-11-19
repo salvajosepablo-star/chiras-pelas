@@ -255,11 +255,110 @@ body.conMapa .hud{padding-left:calc(max(8px,env(safe-area-inset-left,0px)) + 112
   60%{opacity:1; transform:translate(-50%, -100%) scale(1.05) rotate(-2deg);}
   100%{opacity:0; transform:translate(-50%, -140%) scale(0.8) rotate(0deg);}
 }
+
+/* Modo Enfoque / Ocultar HUD para apuntar sin estorbos */
+body.hud-oculto #minimapa,
+body.hud-oculto .chips,
+body.hud-oculto .pista,
+body.hud-oculto .barraPod,
+body.hud-oculto #btnVoz,
+body.hud-oculto #btnTutorial,
+body.hud-oculto #btnMenu,
+body.hud-oculto #btnBolsa,
+body.hud-oculto #btnVista,
+body.hud-oculto #btnSonido{
+  opacity:0!important;
+  pointer-events:none!important;
+  transition:opacity .25s ease-out;
+}
+
+/* Badge flotante de turno limpio (aparece 1.5s y se desvanece suave) */
+#toastTurno{
+  position:fixed;
+  top:calc(env(safe-area-inset-top,0px) + 20px);
+  left:50%;
+  transform:translateX(-50%) translateY(0);
+  background:rgba(20,12,6,.88);
+  border:2.5px solid var(--amarillo);
+  color:var(--crema);
+  padding:10px 22px;
+  border-radius:24px;
+  font-family:var(--display);
+  font-size:20px;
+  letter-spacing:.5px;
+  z-index:90;
+  box-shadow:0 8px 24px rgba(0,0,0,.6), 0 0 15px rgba(245,197,24,.4);
+  pointer-events:none;
+  opacity:0;
+  transition:all .35s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+#toastTurno.ver{
+  opacity:1;
+  transform:translateX(-50%) translateY(10px) scale(1.05);
+}
+
+/* Botones flotantes de juego: Ocultar HUD y Globo/Aire */
+#btnToggleHUD{
+  position:fixed;
+  top:calc(env(safe-area-inset-top,0px) + 8px);
+  right:max(12px,env(safe-area-inset-right,0px));
+  z-index:12;
+  font-family:var(--display);
+  font-size:13px;
+  background:rgba(30,18,8,.85);
+  border:2px solid var(--amarillo);
+  color:var(--amarillo);
+  border-radius:20px;
+  padding:5px 12px;
+  display:flex;
+  align-items:center;
+  gap:5px;
+  cursor:pointer;
+  box-shadow:0 3px 10px rgba(0,0,0,.4);
+  transition:transform .15s, background .2s;
+}
+#btnToggleHUD:active{transform:scale(.94)}
+#btnToggleHUD.limpio{
+  background:var(--amarillo);
+  color:var(--tierra);
+}
+
+#btnTiroGlobo{
+  position:fixed;
+  left:max(12px,env(safe-area-inset-left,0px));
+  bottom:calc(env(safe-area-inset-bottom,0px) + 120px);
+  z-index:11;
+  font-family:var(--display);
+  font-size:14px;
+  background:rgba(20,12,6,.85);
+  border:2.5px solid #29b6f6;
+  color:#e1f5fe;
+  border-radius:18px;
+  padding:8px 14px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  cursor:pointer;
+  box-shadow:0 4px 14px rgba(0,0,0,.5);
+  touch-action:manipulation;
+  transition:all .2s ease;
+}
+#btnTiroGlobo.activo{
+  background:linear-gradient(135deg, #0288d1, #01579b);
+  border-color:#fff;
+  color:#fff;
+  box-shadow:0 0 0 3px rgba(41,182,246,.5), 0 6px 18px rgba(0,0,0,.6);
+  transform:scale(1.06);
+}
 </style>
 </head>
 <body>
 
 <div id="app"></div>
+
+<div id="toastTurno"></div>
+<button id="btnToggleHUD" type="button" aria-label="Limpiar pantalla para ver mejor">👁️ Pantalla limpia</button>
+<button id="btnTiroGlobo" type="button" hidden aria-label="Cambiar entre tiro por tierra y tiro por el aire"><span>🏹</span>Tiro: Rasante</button>
 
 <div class="hud" id="hud" hidden>
   <div class="turno"><b id="turnoNombre">Salida</b><span id="turnoInfo">Tire hacia el hueco</span></div>
@@ -592,8 +691,12 @@ const CUARTA = 0.6;
 const DESQ_CUARTAS = 2;      // el Desquadris corre la bola dos cuartas de lado           // una cuarta (meñique a pulgar) a escala del juego
 const BAR_L = 0.9;            // largo de la barrera
 const MIRA_CLASICA = false;   // sin línea de puntería en el clásico: todo a pulso
-const CANTOS_DEFENSIVOS = ['barrera', 'desquadris', 'ochera', 'carambola', 'arena', 'viento', 'boloncho', 'cohete'];   // Nada de nada los anula todos
-const CANTOS = {barrera: 'Barrera', desquadris: 'Desquadris', ochera: 'Ochera muere', carambola: 'Carambola muere', arena: 'Arena movediza', viento: 'Viento', boloncho: 'Boloncho', cohete: 'Cohete'};
+const CANTOS_DEFENSIVOS = ['barrera', 'desquadris', 'ochera', 'carambola', 'arena', 'viento', 'boloncho', 'cohete', 'iman', 'escudo', 'trueno', 'nitro', 'congelar'];   // Nada de nada los anula todos
+const CANTOS = {
+  barrera: 'Barrera', desquadris: 'Desquadris', ochera: 'Ochera muere', carambola: 'Carambola muere',
+  arena: 'Arena movediza', viento: 'Viento', boloncho: 'Boloncho', cohete: 'Cohete',
+  iman: 'Imán', escudo: 'Escudo Neón', trueno: 'Trueno', nitro: 'Nitro Fuego', congelar: 'Congelar'
+};
 const COLORES = [0xd7263d, 0x1f6fd1, 0xf2b705, 0x20a65a, 0xff7b2e, 0xb05cff, 0x2ee6d6, 0xff4fa3];
 const NOMBRES_IA = ['El Mono', 'La Flaca', 'Juancho', 'La Mona', 'El Tigre', 'Pecas', 'Toño'];
 let batallaLoca = false;
@@ -1164,7 +1267,17 @@ function choques(){
     // con pesos iguales (lo normal) es exactamente el mismo choque de siempre; el Boloncho pesa más
     const e = (a.ficha || b.ficha) ? 1.0 : 0.9;   // con las canicas del arroyuelo el choque es "seco": de frente la bola queda quieta, de lado salen las dos
     const ma = a.masa || 1, mb = b.masa || 1, j = -(1 + e) * vn / (1 / ma + 1 / mb);
-    if (tirador && ((a === tirador.bola && b.ficha) || (b === tirador.bola && a.ficha))) tocoFicha = true;
+    // Rebote si el defensor tiene Escudo Neón activado
+    const ja = a.dueno, jb = b.dueno;
+    if (ja && jb && (ja.tieneEscudo || jb.tieneEscudo)){
+      const conEscudo = ja.tieneEscudo ? ja : jb;
+      const atacante = ja.tieneEscudo ? jb : ja;
+      const bAtac = atacante.bola;
+      bAtac.v.multiplyScalar(-1.4); // Sale rebotado con furia
+      sacudirCamara(1.2);
+      popupArcade('🛡️ ¡REBOTE DE ESCUDO!', conEscudo.bola.p.x, R + 0.6, conEscudo.bola.p.z, '#00e5ff');
+      if (tirador === atacante) golpeados.delete(conEscudo);
+    }
     a.v.addScaledVector(n, j / ma); b.v.addScaledVector(n, -j / mb);
     if (a.enHueco){ a.enHueco = false; a.ignorarHueco = true; a.p.y = R; }
     if (b.enHueco){ b.enHueco = false; b.ignorarHueco = true; b.p.y = R; }
@@ -1378,7 +1491,22 @@ function hayPersonaQuePuedaCantar(t){
   return jugadores.some(h => h.humano && !h.ia && h.vivo && h !== t);
 }
 // ---------- Barra fija de poderes ----------
-const BARRA = [['barrera', '🛡️', 'Barrera'], ['desquadris', '🔄', 'Desquadris'], ['ochera', '🕳️', 'Ochera'], ['carambola', '💥', 'Carambola'], ['arena', '🌀', 'Arena'], ['viento', '🌪️', 'Viento'], ['boloncho', '🔴', 'Boloncho'], ['cohete', '🚀', 'Cohete'], ['nada', '🚫', 'Nada']];
+const BARRA = [
+  ['barrera', '🛡️', 'Barrera'],
+  ['desquadris', '🔄', 'Desquadris'],
+  ['ochera', '🕳️', 'Ochera'],
+  ['carambola', '💥', 'Carambola'],
+  ['arena', '🌀', 'Arena'],
+  ['viento', '🌪️', 'Viento'],
+  ['boloncho', '🔴', 'Boloncho'],
+  ['iman', '🧲', 'Imán'],
+  ['escudo', '🔮', 'Escudo'],
+  ['trueno', '⚡', 'Trueno'],
+  ['nitro', '🔥', 'Nitro'],
+  ['congelar', '🧊', 'Hielo'],
+  ['cohete', '🚀', 'Cohete'],
+  ['nada', '🚫', 'Nada']
+];
 // Los poderes se pueden usar en cualquier momento de la partida (aunque nadie le esté tirando y aunque las bolas rueden)
 const enPartida = () => ['apuntar', 'rodando', 'espera', 'carrera', 'cohete', 'libre'].includes(estado) && jugadores.length > 0;
 function referencia(d){
@@ -1528,6 +1656,11 @@ function usarCanto(d, k, lado, esRemoto){
   else if (k === 'viento') ponerViento(d);
   else if (k === 'boloncho') ponerBoloncho(d);
   else if (k === 'cohete') lanzarCohete(d);
+  else if (k === 'iman') activarIman(d);
+  else if (k === 'escudo') activarEscudo(d);
+  else if (k === 'trueno') activarTrueno(d);
+  else if (k === 'nitro') activarNitro(d);
+  else if (k === 'congelar') congelarRival(d);
   else defensas[k].add(d);
   aviso(`${d.nombre}: ¡${CANTOS[k]}!`);
   sfx.canto();
@@ -1708,11 +1841,97 @@ function soplarViento(h){
     b.v.x += viento.dir.x * VIENTO.acel * f * h; b.v.z += viento.dir.z * VIENTO.acel * f * h;
   });
 }
+// ---------- Nuevos Poderes Épicos (Imán, Escudo, Trueno, Nitro, Congelar) ----------
+const geoEscudo = new THREE.SphereGeometry(R * 1.8, 16, 12);
+const matEscudo = new THREE.MeshBasicMaterial({color: 0x00e5ff, transparent: true, opacity: 0.45, wireframe: true});
+let escudosMeshes = new Map();
+
+function activarEscudo(d){
+  d.tieneEscudo = true;
+  if (!escudosMeshes.has(d)){
+    const m = new THREE.Mesh(geoEscudo, matEscudo);
+    scene.add(m);
+    escudosMeshes.set(d, m);
+  }
+  aviso(`🛡️ ¡${d.nombre} activó su Escudo Neón!`);
+  popupArcade('🛡️ ESCUDO', d.bola.p.x, R + 0.6, d.bola.p.z, '#00e5ff');
+}
+
+function activarIman(d){
+  d.tieneIman = true;
+  d.bola.iman = {radio: 0.6, velCaptura: 4.5, amortiguar: 3.5};
+  aviso(`🧲 ¡${d.nombre} activó el Imán Magnético!`);
+  popupArcade('🧲 IMÁN', d.bola.p.x, R + 0.6, d.bola.p.z, '#ff4081');
+}
+
+function activarTrueno(d){
+  sacudirCamara(1.4);
+  if (window.ChirasAudio && window.ChirasAudio.sfx && window.ChirasAudio.sfx.aplastar) window.ChirasAudio.sfx.aplastar();
+  aviso(`⚡ ¡TRUENO! ${d.nombre} sacudió la cancha`);
+  popupArcade('⚡ ¡TRUENO!', 0, 1.2, -10, '#ffd600');
+  // Desvía violentamente cualquier bola que vaya rodando
+  jugadores.forEach(j => {
+    if (j !== d && j.vivo && j.bola.activa && Math.hypot(j.bola.v.x, j.bola.v.z) > 0.1){
+      j.bola.v.x += (Math.random() * 2 - 1) * 3.5;
+      j.bola.v.z += (Math.random() * 2 - 1) * 3.5;
+    }
+  });
+}
+
+function activarNitro(d){
+  d.tieneNitro = true;
+  aviso(`🔥 ¡NITRO FUEGO! El tiro de ${d.nombre} saldrá con hipervelocidad`);
+  popupArcade('🔥 NITRO', d.bola.p.x, R + 0.6, d.bola.p.z, '#ff3d00');
+}
+
+function congelarRival(d){
+  const ref = referencia(d);
+  if (!ref) return;
+  ref.congelado = true;
+  ref.nada = true; // Anula sus cantos
+  aviso(`🧊 ¡${d.nombre} congeló a ${ref.nombre}!`);
+  popupArcade('🧊 CONGELADO', ref.bola.p.x, R + 0.6, ref.bola.p.z, '#80d8ff');
+}
+
+function actualizarEscudos(){
+  jugadores.forEach(j => {
+    const m = escudosMeshes.get(j);
+    if (m){
+      if (j.tieneEscudo && j.vivo && j.bola.activa && !j.bola.enMano){
+        m.visible = true;
+        m.position.copy(j.bola.p);
+        m.rotation.y += 0.04;
+      } else {
+        m.visible = false;
+      }
+    }
+  });
+}
+
+function limpiarNuevosPoderes(){
+  jugadores.forEach(j => {
+    j.tieneEscudo = false;
+    j.tieneIman = false;
+    j.tieneNitro = false;
+    j.congelado = false;
+    if (j.bola) j.bola.iman = null;
+  });
+  escudosMeshes.forEach(m => { scene.remove(m); });
+  escudosMeshes.clear();
+}
+
 function limpiarDefensas(){
   nadaDe = null;
+  limpiarNuevosPoderes();
   barreras.forEach(w => scene.remove(w.mesh)); barreras = [];
   defensas.ochera.clear(); defensas.carambola.clear();
-  jugadores.forEach(j => { j.nada = false; j.nadaTurno = false; j.cantos = {barrera: 1, desquadris: 1, ochera: 1, carambola: 1, arena: 1, viento: 1, boloncho: 1, cohete: 1}; });
+  jugadores.forEach(j => {
+    j.nada = false; j.nadaTurno = false;
+    j.cantos = {
+      barrera: 1, desquadris: 1, ochera: 1, carambola: 1, arena: 1, viento: 1, boloncho: 1, cohete: 1,
+      iman: 1, escudo: 1, trueno: 1, nitro: 1, congelar: 1
+    };
+  });
   arenas.forEach(a => scene.remove(a.mesh)); arenas = [];
   defensor = null; colaDefensa = [];
   cerrarVentana();
@@ -1736,19 +1955,31 @@ function presaMasCercana(j){
   return mejor;
 }
 
+let tiroPorAire = false;
+
 function tirar(ang, fuerza, esRemoto){
   terminarMovimientos(); cerrarVentana();
   const b = tirador.bola;
-  const vel = velDeFuerza(fuerza);
+  let vel = velDeFuerza(fuerza);
+  if (tirador.tieneNitro){
+    vel *= 1.7; // Hipervelocidad
+    tirador.tieneNitro = false;
+    popupArcade('⚡ ¡SUPER NITRO!', b.p.x, R + 0.5, b.p.z, '#ff3d00');
+  }
   dirTiro = dirDe(ang);
   if (modoJuego === 'online' && !esRemoto && window.ChirasOnline) {
-    window.ChirasOnline.enviarAccion('TIRO', { ang, fuerza });
+    window.ChirasOnline.enviarAccion('TIRO', { ang, fuerza, porAire: tiroPorAire });
   }
   if (viento && !viento.activo && tirador !== viento.por) activarViento();
   golpeados = new Set(); metidos = new Set(); encholo = false; tiempoRodando = 0; poderAlTirar = !!tirador.poder; tocoFicha = false;
   arenas.forEach(a => { a.dentroAlTirar = Math.hypot(tirador.bola.p.x - a.x, tirador.bola.p.z - a.z) < ARENA_R; });
+  
+  const esGlobo = (fase === 'salida' || tiroPorAire);
   if (fase === 'salida'){ b.enMano = false; ponerVelocidad(b, ang, vel, true); }
-  else { b.p.y = R; ponerVelocidad(b, ang, vel, false); }
+  else {
+    b.p.y = R;
+    ponerVelocidad(b, ang, vel, esGlobo);
+  }
   apunta.fuerza = 0; ocultarPuntos();
   estado = 'rodando'; seguir = b;
   sfx.tiro();
@@ -2388,7 +2619,8 @@ function revancha(j, id){
   b.p.set(x, R, 0.35); b.v.set(0, 0, 0); b.last.copy(b.p); mesh.position.copy(b.p);
   // vuelve sin ventajas: sin el poder ni lo que tenía
   Object.assign(j, {vivo: true, poder: false, nada: false, nadaTurno: false, tragadas: [], revanchas: (j.revanchas || 0) + 1,
-    cantos: {barrera: 1, desquadris: 1, ochera: 1, carambola: 1, arena: 1, viento: 1, boloncho: 1, cohete: 1}});
+    cantos: {barrera: 1, desquadris: 1, ochera: 1, carambola: 1, arena: 1, viento: 1, boloncho: 1, cohete: 1,
+             iman: 1, escudo: 1, trueno: 1, nitro: 1, congelar: 1}});
   defensas.ochera.delete(j); defensas.carambola.delete(j);
   aviso(`🔥 ¡La Revancha!\n${j.nombre} apuesta su ${ESTILO[id].nombre} y vuelve desde la raya`);
   if (ganchos.alRevancha) ganchos.alRevancha(j);
@@ -2841,6 +3073,32 @@ function actualizarHUD(){
   $('#turnoInfo').textContent = info + ` · al hueco ${distH(tirador.bola.p, HOLE).toFixed(1).replace('.', ',')} m`;
   $('#pista').hidden = !(estado === 'apuntar' && !tirador.ia && !defensor && fase === 'salida');
   $('#btnNada').hidden = true;   // Nada de nada ahora está siempre en la barra de poderes
+
+  // Toast flotante estilo limpio de 1.5s para indicar de quién es el turno y no saturar la vista
+  mostrarToastTurno(tirador);
+  actualizarBotonGlobo();
+}
+
+let toastTimer = null;
+function mostrarToastTurno(j){
+  if (!j || estado === 'menu') return;
+  const t = $('#toastTurno');
+  if (!t) return;
+  const esMio = (j.humano && !j.ia);
+  t.textContent = esMio ? '🎯 ¡SU TURNO DE TIRAR!' : `🎲 TURNO DE: ${j.nombre.toUpperCase()}`;
+  t.style.borderColor = hex(j.color);
+  t.classList.add('ver');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.classList.remove('ver'); }, 1400);
+}
+
+function actualizarBotonGlobo(){
+  const btn = $('#btnTiroGlobo');
+  if (!btn) return;
+  const enJuego = !$('#hud').hidden && estado === 'apuntar' && tirador && !tirador.ia;
+  btn.hidden = !enJuego;
+  btn.classList.toggle('activo', tiroPorAire);
+  btn.innerHTML = tiroPorAire ? '<span>🏹</span>Tiro: <b>POR EL AIRE</b>' : '<span>🎯</span>Tiro: <b>RASANTE</b>';
 }
 function actualizarBotonVista(){ $('#btnVista').setAttribute('aria-pressed', vistaAerea ? 'true' : 'false'); }
 function ocultarPuntos(){ puntos.forEach(p => p.visible = false); }
@@ -2927,6 +3185,7 @@ $('#rivales').addEventListener('click', e => {
 });
 $('#btnJugar').addEventListener('click', () => {
   initAudio();
+  $('#btnToggleHUD').hidden = false;
   if (modoJuego === 'academia' && window.ChirasAcademia) window.ChirasAcademia.abrir();
   else {
     batallaLoca = modoJuego === 'batalla';
@@ -2955,6 +3214,20 @@ $('#ladoDesq').addEventListener('click', e => {
   usarCanto(defensor, 'desquadris', +bt.dataset.lado); abrirVentana();
 });
 $('#btnNoCanto').addEventListener('click', () => { if (defensor) siguienteDefensor(); });
+// Botón para Ocultar / Mostrar interfaz (Pantalla limpia)
+$('#btnToggleHUD').addEventListener('click', () => {
+  const limpio = document.body.classList.toggle('hud-oculto');
+  $('#btnToggleHUD').classList.toggle('limpio', limpio);
+  $('#btnToggleHUD').innerHTML = limpio ? '👁️ <b>Mostrar HUD</b>' : '👁️ Pantalla limpia';
+});
+
+// Botón para alternar Tiro Rasante / Tiro por el Aire (Globo)
+$('#btnTiroGlobo').addEventListener('click', () => {
+  tiroPorAire = !tiroPorAire;
+  actualizarBotonGlobo();
+  aviso(tiroPorAire ? '🏹 Tiro por el aire activado (la bola vuela)' : '🎯 Tiro rasante activado (por la tierra)');
+});
+
 // Salir al menú (hay que tocar dos veces para no perder la ronda sin querer)
 let confirmaMenu = 0;
 $('#btnMenu').addEventListener('click', () => {
@@ -2975,7 +3248,9 @@ function salirAlMenu(){
   apunta.arrastrando = false; apunta.fuerza = 0; vistaAerea = false; actualizarBotonVista();
   if (ganchos.alSalir) ganchos.alSalir();
   estado = 'menu';
-  ['#hud', '#fuerza', '#pista', '#botones', '#cantos', '#fin', '#escoger', '#bolsaCapa', '#barraPod'].forEach(s => $(s).hidden = true);
+  ['#hud', '#fuerza', '#pista', '#botones', '#cantos', '#fin', '#escoger', '#bolsaCapa', '#barraPod', '#btnTiroGlobo'].forEach(s => $(s).hidden = true);
+  $('#btnToggleHUD').hidden = true;
+  document.body.classList.remove('hud-oculto');
   $('#menu').hidden = false;
   if (window.ChirasAudio) window.ChirasAudio.iniciarAmbiente();
 }
@@ -3243,6 +3518,7 @@ function bucle(ahora){
     }
   });
 
+  actualizarEscudos();
   actualizarEstelas(dt);
 
   marca.position.y = 1.3 + Math.sin(reloj * 2.5) * 0.12; marca.rotation.y += dt * 1.5;
