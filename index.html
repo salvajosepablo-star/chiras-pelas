@@ -2551,7 +2551,16 @@ function resolverTiro(){
 }
 
 // ---------- Batalla a la loca: Cohete, canicas sin vida y modo depredador ----------
-const objetivoCohete = j => jugadores.filter(o => o !== j && o.vivo && (o.tragadas || []).length).sort((a, b) => b.tragadas.length - a.tragadas.length)[0] || null;
+const objetivoCohete = j => {
+  const enemigos = jugadores.filter(o => o !== j && o.vivo && o.bola.activa);
+  if (!enemigos.length) return null;
+  // En Batalla o juego libre: si hay con tragadas busca al más grande, si no, al más cercano
+  const conTragadas = enemigos.filter(o => (o.tragadas || []).length);
+  if (conTragadas.length){
+    return conTragadas.sort((a, b) => b.tragadas.length - a.tragadas.length)[0];
+  }
+  return enemigos.sort((a, b) => distH(a.bola.p, j.bola.p) - distH(b.bola.p, j.bola.p))[0] || null;
+};
 let cohete = null, muertas = [];
 const COHETE = {vel: 9, giro: 2.4, dur: 5, fijar: 1.5};   // fijar: segundos apuntando antes de despegar (la víctima alcanza a defenderse)
 function lanzarCohete(j){
@@ -2647,11 +2656,29 @@ function reventarBoloncho(obj, j){
 }
 function reventar(obj, j){
   const pos = obj.bola.p.clone(), caen = (obj.tragadas || []).slice();
+
+  // Si el objetivo tiene Chaleco Antibalas (Escudo Neón), el chaleco se inmola absorbiendo el cohete
+  if (obj.tieneEscudo){
+    obj.tieneEscudo = false;
+    if (escudosMeshes && escudosMeshes.has(obj)){
+      const m = escudosMeshes.get(obj);
+      if (m) m.visible = false;
+    }
+    sfx.choque(12);
+    sacudirCamara(1.6);
+    popupArcade('🛡️ ¡CHALECO ABSORBIÓ EL COHETE!', pos.x, R + 0.8, pos.z, '#00e5ff');
+    aviso(`🛡️ ¡El Chaleco Antibalas de ${obj.nombre} frenó el impacto del Cohete!`);
+    cerrarTiroCohete();
+    return;
+  }
+
   obj.vivo = false; obj.poder = false; obj.bola.activa = false; obj.bola.mesh.visible = false;
   pasarCanica(obj, j);   // su propia canica (la que jugaba) es para el que lo reventó
   soltarMuertas(obj, pos, caen);
   obj.tragadas = []; obj.bola.radio = 0; obj.bola.masa = 0;
-  aviso(`💥 ¡REVENTADO!\n${j.nombre} reventó a ${obj.nombre}` + (caen.length ? ` y se le cayeron ${caen.length} canica${caen.length > 1 ? 's' : ''}` : ''));
+  sacudirCamara(1.8);
+  popupArcade('🚀💀 ¡COHETE REVENTÓ!', pos.x, R + 0.8, pos.z, '#ff1744');
+  aviso(`💥 ¡COHETE ANIQUILADOR!\n${j.nombre} reventó a ${obj.nombre}` + (caen.length ? ` y se le cayeron ${caen.length} canica${caen.length > 1 ? 's' : ''}` : ''));
   if (ganchos.alReventar) ganchos.alReventar(obj, j, pos, caen.length);
   if (caen.length) setTimeout(() => { aviso('¡MODO DEPREDADOR!\nEl que tenga el poder, que se las trague'); if (ganchos.alDepredador) ganchos.alDepredador(caen.length); }, 1700);
   actualizarHUD();
