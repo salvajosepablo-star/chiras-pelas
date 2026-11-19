@@ -3069,9 +3069,8 @@ function meToca(quienes){
 function revisarAroLuz(){
   jugadores.forEach(j => {
     const b = j.bola;
-    if (!j.vivo || j.poder || j._comido || !b.activa || b.enMano || b.cayendo || b.enHueco || b.p.y > R + 0.05) return;
-    if (b.v.lengthSq() < 0.04) return;
-    const tol = 0.12 + (b.radio || R);
+    if (!j.vivo || j.poder || j._comido || !b.activa || b.enMano || b.cayendo || b.enHueco || b.p.y > R + 0.15) return;
+    const tol = 0.28 + (b.radio || R);
     let aro = Math.abs(distH(b.p, HOLE) - ARROYUELO_R) <= tol ? 'grande' : null;
     if (!aro) aro = huecosExtra.find(h => Math.abs(distH(b.p, h.p) - ARO_CHICO) <= tol) || null;
     if (!aro) return;
@@ -3516,6 +3515,7 @@ function fisicaRodando(dt){
     choques();
     revisarArenas();
     soplarViento(h);
+    revisarAroLuz();
     if (batallaLoca) revisarMuertas();
     if (ganchos.trasSubpaso) ganchos.trasSubpaso();
   }
@@ -3753,6 +3753,8 @@ function actualizarHUD(){
     $('#turnoInfo').textContent = !tirador ? 'Todos tiran al tiempo' : !tirador.vivo ? `${tirador.nombre} quedó por fuera` :
       libreListo(tirador) ? (tirador.poder ? `${tirador.nombre}: tiene el poder, ¡a comer!` : `${tirador.nombre}: tire cuando quiera`) : `${tirador.nombre}: su bola va rodando…`;
     $('#pista').hidden = true; $('#btnNada').hidden = true;
+    mostrarMando();
+    actualizarBotonTiraBolas();
     return;
   }
   if (!tirador) return;
@@ -3774,6 +3776,8 @@ function actualizarHUD(){
   // Toast flotante estilo limpio de 1.5s para indicar de quién es el turno y no saturar la vista
   mostrarToastTurno(tirador);
   actualizarBotonGlobo();
+  mostrarMando();
+  actualizarBotonTiraBolas();
 }
 
 let toastTimer = null;
