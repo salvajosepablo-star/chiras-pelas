@@ -678,6 +678,11 @@ body.hud-oculto #btnSonido{
     </div>
     <p class="nota" id="notaControl"></p>
     <p class="nota teclas">Con teclado (en computador, siempre activo): <kbd>←</kbd><kbd>→</kbd> o <kbd>A</kbd><kbd>D</kbd> apuntar (con <kbd>Shift</kbd> fino) · mantener <kbd>Espacio</kbd> carga la fuerza y al soltar tira · <kbd>1</kbd>–<kbd>8</kbd> poderes · <kbd>N</kbd> Nada de nada · <kbd>S</kbd> saltar (no esperar a que paren las bolas) · <kbd>V</kbd> vista. Con mouse: arrastrar como con el dedo y la rueda afina la puntería.</p>
+    <h2>Música y Ritmo</h2>
+    <div style="display:flex;gap:8px;margin-bottom:12px" id="musicaEstiloBtns">
+      <button type="button" class="btnEstiloMusica" data-est="techno" style="flex:1;padding:9px;border-radius:10px;font-family:var(--display);font-size:14px;background:#e040fb;color:#fff;border:2px solid #fff;box-shadow:0 3px 0 #8e00a8;cursor:pointer">⚡ Techno House (Moderno)</button>
+      <button type="button" class="btnEstiloMusica" data-est="clasico" style="flex:1;padding:9px;border-radius:10px;font-family:var(--display);font-size:14px;background:var(--tierra-2);color:var(--crema);border:2px solid rgba(247,234,208,.3);cursor:pointer">🌴 Tradicional Barrio</button>
+    </div>
     <h2>Volumen</h2>
     <div class="vols">
       <label for="volMusica">Música</label><input type="range" id="volMusica" min="0" max="100">
@@ -1048,13 +1053,30 @@ marca.scale.set(1, 1.6, 1); marca.position.set(HOLE.x, 1.3, HOLE.z); scene.add(m
   }
 })();
 
-// Línea de puntería
+// Línea de puntería y Mira Periférica 360°
 const puntos = [];
 const matPunto = new THREE.MeshBasicMaterial({color: 0xffffff, transparent: true, opacity: .9});
-for (let i = 0; i < 16; i++){
-  const m = new THREE.Mesh(new THREE.CircleGeometry(0.03, 10), matPunto);
+for (let i = 0; i < 24; i++){
+  const m = new THREE.Mesh(new THREE.CircleGeometry(0.035, 12), matPunto);
   m.rotation.x = -Math.PI/2; m.visible = false; scene.add(m); puntos.push(m);
 }
+
+// Retícula / Diana de Mira Periférica para apuntar a donde se desee
+const geoDiana = new THREE.RingGeometry(0.08, 0.12, 24);
+const matDiana = new THREE.MeshBasicMaterial({color: 0x00e5ff, transparent: true, opacity: 0.85, side: THREE.DoubleSide});
+const miraDiana = new THREE.Mesh(geoDiana, matDiana);
+miraDiana.rotation.x = -Math.PI/2;
+miraDiana.visible = false;
+scene.add(miraDiana);
+
+const geoCruz = new THREE.PlaneGeometry(0.03, 0.3);
+const matCruz = new THREE.MeshBasicMaterial({color: 0x00e5ff, transparent: true, opacity: 0.85});
+const cruzH = new THREE.Mesh(geoCruz, matCruz);
+cruzH.rotation.x = -Math.PI/2; cruzH.rotation.z = Math.PI/2;
+const cruzV = new THREE.Mesh(geoCruz, matCruz);
+cruzV.rotation.x = -Math.PI/2;
+miraDiana.add(cruzH);
+miraDiana.add(cruzV);
 
 // ---------- Bolas ----------
 const geoBola = new THREE.SphereGeometry(R, 28, 20);
@@ -1271,23 +1293,40 @@ function pasoBola(b, dt, sim){
   }
   if (b.enHueco || b.enMano) return;
   if (b.esTorpedo){
-    // Tiro torpedo aéreo (vuela a 4 cm sobre la tierra sin pivotar ni caer bruscamente)
-    b.p.y = R + 0.04;
-    b.v.y = 0;
+    // Tiro aéreo elevado con potencia requerida: vuela a 22 cm sobre el suelo
     b.p.addScaledVector(b.v, dt);
     let s = Math.hypot(b.v.x, b.v.z);
     if (s > 0){
-      const ns = Math.max(0, s - DECEL_DIRT * 0.75 * dt); // menor fricción porque va por el aire
+      const ns = Math.max(0, s - DECEL_DIRT * 0.55 * dt); // menor resistencia en vuelo aéreo
       const k = ns / s; b.v.x *= k; b.v.z *= k;
-      if (ns < 0.2){
-        // Cuando pierde casi toda la velocidad aterriza suavemente en la tierra
-        b.esTorpedo = false;
-        b.p.y = R;
+      
+      // A medida que la bola va completando la trayectoria y se le va acabando la potencia:
+      // Cuando la velocidad desciende (por debajo del 45% de su velocidad inicial o < 3.2 m/s),
+      // la bola empieza a perder sustentación y cae en picada hacia el suelo
+      if (s < (b.velInicialAerea ? b.velInicialAerea * 0.45 : 3.2)){
+        b.p.y -= G * 0.85 * dt; // Gravedad tirándola al suelo
+        if (b.p.y <= R){
+          // Cae al suelo rebotando y luego rueda hasta terminar en su punto
+          b.p.y = R;
+          b.esTorpedo = false;
+          b.v.y = Math.min(2.2, Math.max(0.6, s * 0.35)); // Rebote vertical
+          b.v.x *= 0.78; b.v.z *= 0.78; // Pérdida de inercia por el impacto
+          if (!sim) {
+            sfx.bote(b.v.y * 1.5);
+            popupArcade('💥 ¡AL SUELO!', b.p.x, R + 0.3, b.p.z, '#00e5ff');
+          }
+        }
+      } else {
+        // En pleno vuelo permanece elevado a ~22 cm
+        b.p.y = Math.max(R + 0.04, b.p.y);
       }
+    } else {
+      b.esTorpedo = false;
+      b.p.y = R;
     }
     // Revisar si pasa sobre el hueco
     const H0 = huecos.length > 1 ? huecoCerca(b.p) : HOLE, dx = b.p.x - H0.x, dz = b.p.z - H0.z, dh = Math.hypot(dx, dz);
-    if (!b.ignorarHueco && dh < HOLE_R - R * 0.1 && s < 4.5){
+    if (!b.ignorarHueco && dh < HOLE_R - R * 0.1 && (s < 4.5 || b.p.y <= R + 0.08)){
       b.cayendo = true; b.caidaT = 0; b.v.set(0, 0, 0); b.hoyo = H0; b.esTorpedo = false;
       if (tirador && b === tirador.bola) encholo = true;
       sfx.hueco();
@@ -1419,11 +1458,13 @@ function velocidadPara(desde, ang, distObjetivo, globo){
 function ponerVelocidad(b, ang, vel, modoTiro){
   const d = dirDe(ang);
   if (modoTiro === 'torpedo'){
-    // Tiro por el aire estilo Torpedo / Cohete:
-    // La bola levita 4 cm sobre la tierra (R + 0.04) y sale disparada en línea recta con hiperpotencia y precisión láser, sin pivotar
-    b.p.y = R + 0.04;
+    // Tiro por el aire con mayor elevación (22 cm sobre el suelo)
+    // Sale disparado con la potencia requerida en la dirección indicada y vuelo rasante elevado
+    b.p.y = R + 0.22;
     b.esTorpedo = true;
-    b.v.set(d.x * vel * 1.35, 0, d.z * vel * 1.35); // 35% más de potencia, sin parábola ni rebote hacia arriba
+    const vH = vel * 1.35;
+    b.velInicialAerea = vH;
+    b.v.set(d.x * vH, 0, d.z * vH);
   } else if (modoTiro === 'globo' || modoTiro === true){
     // Salida tradicional
     b.esTorpedo = false;
@@ -3240,7 +3281,10 @@ function actualizarBotonGlobo(){
   btn.innerHTML = tiroPorAire ? '<span>🏹</span>Tiro: <b>POR EL AIRE</b>' : '<span>🎯</span>Tiro: <b>RASANTE</b>';
 }
 function actualizarBotonVista(){ $('#btnVista').setAttribute('aria-pressed', vistaAerea ? 'true' : 'false'); }
-function ocultarPuntos(){ puntos.forEach(p => p.visible = false); }
+function ocultarPuntos(){
+  puntos.forEach(p => p.visible = false);
+  if (miraDiana) miraDiana.visible = false;
+}
 
 let modoJuego = 'clasico';
 function pintarArroyo(){
@@ -3310,6 +3354,26 @@ $('#modos').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   modoJuego = b.dataset.m; pintarMenu(); guardarMenu();
 });
+// Selector de Estilo de Música (Techno House vs Tradicional)
+function actualizarBotonesMusica(){
+  const actual = window.ChirasAudio ? window.ChirasAudio.getEstiloMusica() : 'techno';
+  document.querySelectorAll('#musicaEstiloBtns button').forEach(b => {
+    const act = b.dataset.est === actual;
+    b.style.background = act ? '#e040fb' : 'var(--tierra-2)';
+    b.style.borderColor = act ? '#ffffff' : 'rgba(247,234,208,.3)';
+    b.style.boxShadow = act ? '0 3px 0 #8e00a8' : 'none';
+  });
+}
+$('#musicaEstiloBtns').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const est = b.dataset.est;
+  if (window.ChirasAudio && window.ChirasAudio.ponerEstiloMusica){
+    window.ChirasAudio.ponerEstiloMusica(est);
+  }
+  actualizarBotonesMusica();
+});
+setTimeout(actualizarBotonesMusica, 100);
+
 ['musica', 'efectos', 'voz'].forEach(k => {
   const el = $('#vol' + k[0].toUpperCase() + k.slice(1));
   el.value = Math.round(volumen[k] * 100);
@@ -3798,22 +3862,43 @@ function bucle(ahora){
       resolverTiro();
     }
   }
-  if (estado === 'apuntar' && tirador && (MIRA_CLASICA || modoCopia)){
+  // MIRA PERIFÉRICA DINÁMICA 360° (Siempre visible al apuntar si el usuario lo desea o en modo aire/copia)
+  if (estado === 'apuntar' && tirador && !tirador.ia){
     const b = tirador.bola, d = dirDe(apunta.ang);
-    const largo = modoCopia ? (0.8 + apunta.fuerza * 6.0) : (0.4 + apunta.fuerza * 3.2);
-    const n = Math.round(modoCopia ? (6 + apunta.fuerza * 10) : (4 + apunta.fuerza * 12));
-    if (modoCopia) {
-      // En modo copia: puntos de neón brillantes
-      matPunto.color.set(tirador.poder ? 0xffcc00 : 0x00ffff);
-    } else {
-      matPunto.color.setHSL(0.15 - apunta.fuerza * 0.15, 1, 0.6);
-    }
+    const fz = apunta.fuerza || 0.05;
+    // Si está apuntando con la cauchera o tiene tiro en el aire activado, proyectamos trayectoria larga y retícula
+    const distAlcance = tiroPorAire ? (1.5 + fz * 8.5) : (1.0 + fz * 6.5);
+    const cantPuntos = Math.min(24, Math.max(8, Math.round(8 + fz * 16)));
+
+    // Color de mira: Cian neón normal, Dorado con poder, Fucsia/Carmesí en el aire
+    const colHex = tiroPorAire ? 0x00e5ff : tirador.poder ? 0xffcc00 : 0x76ff03;
+    matPunto.color.set(colHex);
+    matDiana.color.set(colHex);
+    matCruz.color.set(colHex);
+
     puntos.forEach((p, i) => {
-      p.visible = i < n;
-      const t = 0.2 + (i / 16) * largo;
-      p.position.set(b.p.x + d.x * t, 0.015, b.p.z + d.z * t);
-      if (modoCopia) p.scale.setScalar(1.0 + Math.sin(reloj * 8 + i) * 0.2);
+      p.visible = i < cantPuntos;
+      const t = 0.25 + (i / 23) * distAlcance;
+      let yPunto = 0.015;
+      if (tiroPorAire){
+        // Muestra la altura del vuelo en arco proyectado (más elevado 0.24m y desciende)
+        const prog = i / 23;
+        yPunto = R + (0.24 * (1 - prog * 0.85));
+      }
+      p.position.set(b.p.x + d.x * t, yPunto, b.p.z + d.z * t);
+      p.scale.setScalar(0.8 + Math.sin(reloj * 10 + i * 0.3) * 0.25);
     });
+
+    // Retícula periférica en el destino proyectado
+    miraDiana.visible = true;
+    const destX = b.p.x + d.x * distAlcance;
+    const destZ = b.p.z + d.z * distAlcance;
+    miraDiana.position.set(destX, 0.02, destZ);
+    miraDiana.rotation.z = reloj * 2.5; // Giro continuo estilo radar/mira futurista
+    const escDiana = 0.85 + Math.sin(reloj * 6) * 0.15;
+    miraDiana.scale.set(escDiana, escDiana, escDiana);
+  } else {
+    ocultarPuntos();
   }
   if (estado !== 'rodando' && !$('#btnSaltar').hidden) $('#btnSaltar').hidden = true;
   pasoMando(dt);

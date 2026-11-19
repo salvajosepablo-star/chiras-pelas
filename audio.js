@@ -100,17 +100,141 @@ function rodar(nivel){
 }
 function pararRodar(){ if (rodarNodo){ try { rodarNodo.s.stop(); rodarNodo.s2.stop(); } catch (e) {} rodarNodo = null; } }
 
-// ---------- música arcade sencilla (se genera, no es una canción grabada) ----------
+// ---------- música arcade y techno house moderna ----------
 // Momentos de la música (intensidad):
-//  0 = apuntando: rítmica pero tranquila, con marimba tropical
-//  1 = alguien tiene LA VERDAD / el poder: entra la melodía
-//  2 = cacería: percusión más rápida y bajos emocionantes
+//  0 = apuntando: rítmica pero tranquila
+//  1 = alguien tiene LA VERDAD / el poder: entra melodía y sintetizador
+//  2 = cacería: percusión rápida y bajos emocionantes
 //  3 = batalla final (quedan dos): lo más intenso
 let musica = null, intensidad = 0, ambiente = null;
+let estiloMusica = 'techno'; // 'techno' (por defecto) o 'clasico'
+
+function ponerEstiloMusica(est){
+  estiloMusica = est;
+  try { localStorage.setItem('chiras-musica-estilo', est); } catch(e){}
+  if (musica){ pararMusica(); iniciarMusica(); }
+}
+try {
+  const guardado = localStorage.getItem('chiras-musica-estilo');
+  if (guardado) estiloMusica = guardado;
+} catch(e){}
+
 function ponerIntensidad(n){ intensidad = n; }
 function iniciarMusica(){
   const a = N.getAudio(); if (!a || musica) return;
   pararAmbiente();
+  
+  if (estiloMusica === 'techno'){
+    // TECHNO HOUSE ENERGÉTICO MODERNO (Estilo Club / Festival electrónico)
+    const BPM = [126, 128, 130, 134];
+    // Acordes y bajos punchy enérgicos estilo slap bass / synthwave
+    const bassHouse = [55, 0, 55, 110, 0, 55, 0, 82.4, 73.4, 0, 73.4, 110, 0, 65.4, 82.4, 0];
+    const leadSynth = [220, 261.6, 329.6, 392, 440, 392, 329.6, 261.6, 293.7, 349.2, 440, 523.2, 440, 349.2, 293.7, 329.6];
+    let n = 0, prox = a.currentTime + 0.1;
+    const destino = a._musica || a.destination;
+
+    const nota = (f, t, dur, vol, tipo, cutoff) => {
+      const o = a.createOscillator(), g = a.createGain();
+      o.type = tipo; o.frequency.value = f;
+      if (cutoff){
+        const fl = a.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = cutoff;
+        o.connect(fl).connect(g).connect(destino);
+      } else {
+        o.connect(g).connect(destino);
+      }
+      g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.start(t); o.stop(t + dur + 0.02);
+    };
+
+    // Kick 4-on-the-floor con golpe profundo y pegada corta
+    const kickHouse = (t, vol) => {
+      const o = a.createOscillator(), g = a.createGain();
+      o.frequency.setValueAtTime(160, t);
+      o.frequency.exponentialRampToValueAtTime(38, t + 0.12);
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+      o.connect(g).connect(destino);
+      o.start(t); o.stop(t + 0.2);
+    };
+
+    // Clap / Snare house electro
+    const clapHouse = (t, vol) => {
+      const s = a.createBufferSource(); s.buffer = ruidoBuffer(a);
+      const fl = a.createBiquadFilter(); fl.type = 'bandpass'; fl.frequency.value = 1800; fl.Q.value = 2.5;
+      const g = a.createGain();
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+      s.connect(fl).connect(g).connect(destino);
+      s.start(t, Math.random()); s.stop(t + 0.16);
+      // Ruido pre-clap para el crujido clásico house
+      const o = a.createOscillator(), og = a.createGain();
+      o.type = 'triangle'; o.frequency.value = 240;
+      og.gain.setValueAtTime(vol * 0.4, t); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+      o.connect(og).connect(destino); o.start(t); o.stop(t + 0.1);
+    };
+
+    // Hi-hats en contratiempo (Offbeat Hat) con swing house
+    const offbeatHat = (t, vol, open) => {
+      const s = a.createBufferSource(); s.buffer = ruidoBuffer(a);
+      const fl = a.createBiquadFilter(); fl.type = 'highpass'; fl.frequency.value = open ? 6500 : 9000;
+      const g = a.createGain();
+      const dur = open ? 0.15 : 0.04;
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      s.connect(fl).connect(g).connect(destino);
+      s.start(t, Math.random()); s.stop(t + dur + 0.02);
+    };
+
+    const id = setInterval(() => {
+      if (!N.sonidoActivo()){ prox = a.currentTime + 0.1; return; }
+      while (prox < a.currentTime + 0.15){
+        const nv = Math.max(0, Math.min(3, intensidad)), paso = 60 / BPM[nv] / 4;
+        const i = n % 16, compas = Math.floor(n / 16) % 4, sube = [1, 1.122, 1.259, 0.89][compas];
+
+        // 1. KICK (Four on the floor: tiempos 0, 4, 8, 12)
+        if (i % 4 === 0) kickHouse(prox, nv === 0 ? 0.42 : 0.55);
+
+        // 2. OFFBEAT HI-HAT (En los contratiempos: tiempos 2, 6, 10, 14)
+        if (i % 4 === 2) offbeatHat(prox, nv === 0 ? 0.08 : 0.13, true);
+        else if (nv >= 1 && i % 2 === 1) offbeatHat(prox, 0.04, false); // hats continuos
+
+        // 3. CLAP / TAROLA en los tiempos 4 y 12
+        if (i === 4 || i === 12) clapHouse(prox, nv === 0 ? 0.22 : 0.35);
+
+        // 4. TECHNO BASS (Sawtooth filtrado punchy)
+        if (bassHouse[i]){
+          const fb = bassHouse[i] * sube;
+          nota(fb, prox, paso * 1.4, nv === 0 ? 0.18 : 0.28, 'sawtooth', 850 + nv * 350);
+          nota(fb * 0.5, prox, paso * 1.2, 0.12, 'sine'); // sub-bass
+        }
+
+        // 5. SYNTH LEADS & ARPEGIOS TECHNO HOUSE
+        if (nv >= 1){
+          const m = leadSynth[(i + compas * 2) % 16];
+          if (m && (i % 2 === 0 || nv >= 2)){
+            nota(m * 1.5, prox, paso * 0.85, nv >= 2 ? 0.07 : 0.05, 'square', 2400);
+          }
+        }
+
+        // 6. DROP / CLÍMAX EN CACERÍA O BATALLA
+        if (nv >= 2){
+          if (i % 2 === 0) offbeatHat(prox, 0.06, false);
+          if (i >= 12) kickHouse(prox, 0.4); // redoble de kick al final de compás
+        }
+        if (nv >= 3){
+          // Arpegio hipnótico ultra rápido 1/16 notas
+          const arp = [440, 523.2, 659.2, 784, 880, 784, 659.2, 523.2][i % 8] * sube;
+          nota(arp, prox, paso * 0.7, 0.055, 'sawtooth', 3200);
+        }
+
+        prox += paso; n++;
+      }
+    }, 28);
+    musica = {id};
+    return;
+  }
+
+  // MODO CLÁSICO TROPICAL
   const BPM = [108, 118, 128, 138];
   const bajo = [110, 0, 110, 0, 131, 0, 110, 0, 98, 0, 98, 0, 82, 0, 98, 0];
   const melodia = [440, 0, 523, 0, 659, 0, 523, 0, 392, 0, 494, 0, 587, 0, 494, 0];
@@ -138,13 +262,10 @@ function iniciarMusica(){
     while (prox < a.currentTime + 0.15){
       const nv = Math.max(0, Math.min(3, intensidad)), paso = 60 / BPM[nv] / 4;
       const i = n % 16, compas = Math.floor(n / 16) % 4, sube = [1, 0.7937, 1.1892, 0.8909][compas], seccion = Math.floor(n / 128) % 2;
-      // almohada suave con el acorde de cada compás
       if (i === 0){ [2, 2.378, 3].forEach(m => nota(110 * m * sube, prox, paso * 15, nv === 0 ? 0.018 : 0.026, 'triangle')); }
-      // base: bombo y maraca suave
       if (i % (nv >= 2 ? 4 : 8) === 0) golpe(prox, 150, 0.18, nv === 0 ? 0.35 : 0.5);
       if (i % 2 === 1) plato(prox, nv === 0 ? 0.04 : 0.07, 0.04, nv === 0 ? 5000 : 7000);
       if (bajo[i]) nota(bajo[i] * sube, prox, paso * 1.8, 0.2, 'triangle');
-      // marimba tropical (más presente cuando está tranquilo)
       if (marimba[i] && nv <= 1){ nota(marimba[i] * sube, prox, 0.22, nv === 0 ? 0.07 : 0.045, 'sine'); nota(marimba[i] * 4 * sube, prox, 0.05, 0.015, 'triangle'); }
       if (nv >= 1){
         if (i === 4 || i === 12) plato(prox, 0.22, 0.12, 2500);
@@ -152,14 +273,12 @@ function iniciarMusica(){
         if (mel && (compas % 2 === 1 || nv >= 2)) nota(mel * sube, prox, paso * 1.6, nv >= 2 ? 0.045 : 0.05, nv >= 2 ? 'square' : 'triangle');
       }
       if (nv >= 2){
-        // cacería: percusión rápida y bajos emocionantes
         if (i % 4 === 2) golpe(prox, 120, 0.12, 0.32);
         plato(prox, 0.04, 0.03);
         if (bajo[i]) nota(bajo[i] * 2 * sube, prox, paso * 0.9, 0.08, 'sawtooth');
-        if (i >= 13) golpe(prox, 220 - (i - 13) * 40, 0.14, 0.28);   // redoble al final del compás
+        if (i >= 13) golpe(prox, 220 - (i - 13) * 40, 0.14, 0.28);
       }
       if (nv >= 3){
-        // batalla final: arpegio constante y golpes en cada tiempo
         nota([220, 262, 330, 392][i % 4] * 2 * sube, prox, paso * 0.8, 0.04, 'sawtooth');
         if (i % 2 === 0) golpe(prox, 90, 0.1, 0.25);
       }
@@ -367,5 +486,5 @@ N.sfx.hueco = () => {
   ruido(0.25, 0.14, 'bandpass', 700, 300, 2, 0.05);
   [0.18, 0.27, 0.34].forEach((t, i) => tono(950 - i * 140, 0.06, 0.07, 'sine', null, t));   // tintineo al caer
 };
-window.ChirasAudio = {sfx, rodar, pararRodar, iniciarMusica, pararMusica, voz, FRASES, nombreVoz, ponerIntensidad, iniciarAmbiente, pararAmbiente, celebrar};
+window.ChirasAudio = {sfx, rodar, pararRodar, iniciarMusica, pararMusica, ponerEstiloMusica, getEstiloMusica: () => estiloMusica, voz, FRASES, nombreVoz, ponerIntensidad, iniciarAmbiente, pararAmbiente, celebrar};
 })();
