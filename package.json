@@ -1,6 +1,6 @@
 {
   "name": "chiras-pelas",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Videojuego tradicional colombiano de canicas",
   "main": "server.js",
   "scripts": {
