@@ -33,7 +33,7 @@
 html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none;touch-action:none;background:var(--tierra);color:var(--crema);font-family:var(--body);-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
 #app{position:fixed;inset:0}
 #app canvas{display:block;touch-action:none;width:100%;height:100%}
-.hud{position:fixed;left:0;right:0;top:0;padding-top:calc(env(safe-area-inset-top,0px) + 8px);padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.hud{position:fixed;left:0;right:0;top:0;padding-top:calc(env(safe-area-inset-top,0px) + 8px);padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));display:none!important;pointer-events:none}
 .turno{align-self:flex-start;background:var(--velo);border-radius:14px;padding:8px 12px;display:flex;flex-direction:column;gap:2px;max-width:100%}
 .turno b{font-family:var(--display);font-weight:400;font-size:20px;letter-spacing:.3px}
 .turno span{font-size:13px;opacity:.9}
@@ -157,7 +157,7 @@ button.item:active{border-color:var(--amarillo)}
 #btnSaltar[hidden]{display:none}
 #btnSaltar:active{transform:translateX(-50%) scale(.94)}
 /* Minimapa arriba a la izquierda (transparente: se ve la cancha por detrás) */
-#minimapa{position:fixed;left:max(8px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 8px);width:104px;height:136px;z-index:5;pointer-events:none;border-radius:12px;border:1.5px solid rgba(247,234,208,.45);background:rgba(20,12,6,.22)}
+#minimapa{display:none!important}
 #minimapa[hidden]{display:none}
 body.conMapa .hud{padding-left:calc(max(8px,env(safe-area-inset-left,0px)) + 112px)}
 
@@ -403,17 +403,7 @@ body.hud-oculto #btnSonido{
 
 <div id="toastTurno"></div>
 <button id="btnToggleHUD" type="button" aria-label="Limpiar pantalla para ver mejor">👁️ Pantalla limpia</button>
-<button id="btnTiroGlobo" type="button" hidden aria-label="Cambiar entre tiro por tierra y tiro por el aire"><span>🏹</span>Tiro: Rasante</button>
-
-<!-- Control de Inclinación de Flecha para Tiro en el Aire -->
-<div id="controlElevacionAire" hidden>
-  <span>🏹 INCLINACIÓN FLECHA</span>
-  <div class="inclinacion-btns" id="btnsInclinacion">
-    <button type="button" data-inc="abajo" title="Clavado hacia el piso">⬇️ Clavado</button>
-    <button type="button" data-inc="rasante" class="activo" title="Flecha recta directa">➡️ Recto</button>
-    <button type="button" data-inc="arriba" title="Parábola alta a distancia">↗️ Elevado</button>
-  </div>
-</div>
+<button id="btnTiroGlobo" type="button" hidden aria-label="Cambiar entre tiro raso y tiro elevado"><span>🎯</span>Tiro: Raso</button>
 
 <!-- Silueta 2D de la mano realista preparando el tiro -->
 <div id="vistaManoTiro" hidden style="position:fixed;bottom:0;left:50%;transform:translateX(-50%);pointer-events:none;z-index:4;transition:all .15s ease-out">
@@ -950,6 +940,10 @@ let fichas = [];                                   // las canicas apostadas dent
 function colocarHueco(x, z){
   HOLE.set(x, 0, z);
   borde.position.set(x, 0.004, z); hueco.position.set(x, 0.005, z); marca.position.set(x, 1.3, z);
+  if (typeof grupoBanderines !== 'undefined' && grupoBanderines) {
+    banderin1.position.set(x - ARROYUELO_R, 0, z);
+    banderin2.position.set(x + ARROYUELO_R, 0, z);
+  }
 }
 function limpiarFichas(){ fichas.forEach(f => scene.remove(f.mesh)); fichas = []; }
 function ponerFichas(n, id){
@@ -1082,8 +1076,42 @@ function huecoObjetivo(p){
   for (const h of huecos){ const e = Math.hypot(p.x - h.x, p.z - h.z); if (e > 0.4 && e < d){ d = e; m = h; } }
   return m || HOLE;
 }
-const marca = new THREE.Mesh(new THREE.OctahedronGeometry(0.16), new THREE.MeshLambertMaterial({color: 0xf5c518, emissive: 0x6b4f00}));
-marca.scale.set(1, 1.6, 1); marca.position.set(HOLE.x, 1.3, HOLE.z); scene.add(marca);
+// Reemplazo del rombo amarillo por banderines translúcidos elegantes en el perímetro del círculo
+const marca = new THREE.Group();
+marca.visible = false; // Sin el rombo amarillo que obstruía la visión
+scene.add(marca);
+
+// Banderines translúcidos en los extremos del círculo del arroyuelo
+const grupoBanderines = new THREE.Group();
+const matAsta = new THREE.MeshLambertMaterial({color: 0xffffff, transparent: true, opacity: 0.7});
+const matTela1 = new THREE.MeshBasicMaterial({color: 0xffd700, transparent: true, opacity: 0.65, side: THREE.DoubleSide});
+const matTela2 = new THREE.MeshBasicMaterial({color: 0x00e5ff, transparent: true, opacity: 0.65, side: THREE.DoubleSide});
+
+function crearBanderin(colorMat, x, z, rotY){
+  const b = new THREE.Group();
+  const asta = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.9, 8), matAsta);
+  asta.position.y = 0.45;
+  b.add(asta);
+  // Tela triangular del banderín
+  const geomTela = new THREE.BufferGeometry();
+  const vertices = new Float32Array([
+    0, 0.85, 0,
+    0.35, 0.72, 0,
+    0, 0.60, 0
+  ]);
+  geomTela.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+  const tela = new THREE.Mesh(geomTela, colorMat);
+  b.add(tela);
+  b.position.set(x, 0, z);
+  b.rotation.y = rotY;
+  return b;
+}
+
+const banderin1 = crearBanderin(matTela1, HOLE.x - ARROYUELO_R, HOLE.z, 0.2);
+const banderin2 = crearBanderin(matTela2, HOLE.x + ARROYUELO_R, HOLE.z, -0.2);
+grupoBanderines.add(banderin1);
+grupoBanderines.add(banderin2);
+scene.add(grupoBanderines);
 
 // Árboles y piedras alrededor
 (function decorado(){
@@ -1431,9 +1459,17 @@ function pasoBola(b, dt, sim){
       if (ns < 0.01){ b.v.x = 0; b.v.z = 0; }
     }
   }
-  // paredes invisibles lejanas
-  if (b.p.x < -60 || b.p.x > 60){ b.p.x = Math.max(-60, Math.min(60, b.p.x)); b.v.x *= -0.4; }
-  if (b.p.z < -150 || b.p.z > 50){ b.p.z = Math.max(-150, Math.min(50, b.p.z)); b.v.z *= -0.4; }
+  // paredes invisibles amortiguadoras (límites de cancha protegidos para que nunca se tilde ni salga del mapa)
+  const limX = CANCHA.x - 1, limZMax = CANCHA.zMax - 1, limZMin = CANCHA.zMin + 1;
+  if (b.p.x < -limX){ b.p.x = -limX; b.v.x = Math.abs(b.v.x) * 0.45; }
+  else if (b.p.x > limX){ b.p.x = limX; b.v.x = -Math.abs(b.v.x) * 0.45; }
+  if (b.p.z < limZMin){ b.p.z = limZMin; b.v.z = Math.abs(b.v.z) * 0.45; }
+  else if (b.p.z > limZMax){ b.p.z = limZMax; b.v.z = -Math.abs(b.v.z) * 0.45; }
+  // Limitar velocidad máxima para evitar que traspase modelos en colisiones ultrarrápidas
+  const vMaxPermitida = 24;
+  if (b.v.lengthSq() > vMaxPermitida * vMaxPermitida){
+    b.v.clampLength(0, vMaxPermitida);
+  }
 }
 
 function choques(){
@@ -1512,30 +1548,14 @@ function ponerVelocidad(b, ang, vel, modoTiro){
   const d = dirDe(ang);
   if (modoTiro === 'torpedo'){
     // Tiro Flecha Aérea:
-    // Sale desde la parte alta (1.15m), como una flecha disparada desde un árbol o torre
+    // Sale desde la parte alta (1.05m) con trayectoria natural descendente hacia el objetivo
     b.p.y = R + ALTURA_FLECHA;
     b.esTorpedo = true;
-    
-    // Potencia y vector vertical según la inclinación elegida
-    if (modoInclinacionAire === 'abajo'){
-      // Clavado hacia el piso con furia
-      const vH = vel * 1.1;
-      const vY = -vel * 0.75; // Dirección hacia abajo al suelo
-      b.gravedadFlecha = 0.6;
-      b.v.set(d.x * vH, vY, d.z * vH);
-    } else if (modoInclinacionAire === 'arriba'){
-      // Parábola elevada hacia arriba para objetivos lejanos
-      const vH = vel * 1.25;
-      const vY = vel * 0.55; // Sube primero y luego la gravedad la hace bajar
-      b.gravedadFlecha = 1.0;
-      b.v.set(d.x * vH, vY, d.z * vH);
-    } else {
-      // Recto / Rasante: vuelo horizontal directo que va descendiendo suavemente
-      const vH = vel * 1.4;
-      const vY = -vel * 0.15;
-      b.gravedadFlecha = 0.75;
-      b.v.set(d.x * vH, vY, d.z * vH);
-    }
+    const vH = vel * 1.35;
+    // Si la fuerza es suave, cae más hacia el suelo; si es fuerte, viaja más lejos y rápido
+    const vY = -0.25 * (MAXV - vel * 0.4);
+    b.gravedadFlecha = 0.85;
+    b.v.set(d.x * vH, vY, d.z * vH);
   } else if (modoTiro === 'globo' || modoTiro === true){
     // Salida tradicional
     b.esTorpedo = false;
@@ -2375,10 +2395,12 @@ function resolverTiro(){
   if (!otraVez){ do { turno = (turno + 1) % orden.length; } while (!orden[turno].vivo); limpiarDefensas(); }
   estado = 'espera';
 
-  // Si estamos en partida Online, el anfitrión (Host) sincroniza el estado exacto de todas las canicas y el turno
+  // Si estamos en partida Online, el tirador o anfitrión transmite el estado exacto del tiro y sus consecuencias
   if (modoJuego === 'online' && window.ChirasOnline) {
     const miP = window.ChirasOnline.getMiJugador();
-    if (miP && miP.isHost) {
+    const soyTirador = miP && s.remotoId === miP.id;
+    const soyHost = miP && miP.isHost;
+    if (soyTirador || soyHost) {
       const snapshotBolas = jugadores.map(j => ({
         id: j.remotoId,
         x: Number(j.bola.p.x.toFixed(4)),
@@ -2393,7 +2415,9 @@ function resolverTiro(){
         turno,
         tiradorId: orden[turno] ? orden[turno].remotoId : null,
         ordenIds: orden.map(o => o.remotoId),
-        bolas: snapshotBolas
+        bolas: snapshotBolas,
+        finRonda: vivos().length <= 1,
+        ganadorId: vivos().length === 1 ? vivos()[0].remotoId : null
       });
     }
   }
@@ -2885,7 +2909,12 @@ function terminar(g){
   const conCanicas = serie.filter(j => j.bolsa.length > 0);
   const personasVivas = personas.filter(j => j.bolsa.length > 0);
   let titulo, txt, boton, sigue = false;
-  if (conCanicas.length === 1){
+  if (modoJuego === 'online'){
+    titulo = g.humano ? '🏆 ¡VICTORIA ONLINE!' : '💀 DERROTA ONLINE';
+    txt = g.humano ? `¡Cazó y eliminó a su oponente en el duelo online!` : `Su oponente lo cazó en la partida online.`;
+    boton = '🏠 Volver al Menú';
+    accionFin = () => salirAlMenu();
+  } else if (conCanicas.length === 1){
     const w = conCanicas[0];
     titulo = !varias && w.humano ? '¡Los peló a todos!' : `¡${w.nombre} los peló a todos!`;
     txt = `Se quedó con todas las canicas: ${w.bolsa.length} (${pesos(valorBolsa(w))}).`;
@@ -3343,19 +3372,16 @@ function mostrarToastTurno(j){
   toastTimer = setTimeout(() => { t.classList.remove('ver'); }, 1400);
 }
 
-// Variables para Tiro Flecha por el Aire
-let modoInclinacionAire = 'recto'; // 'abajo' (clavado al piso), 'recto' (directo), 'arriba' (parábola a distancia)
-const ALTURA_FLECHA = 1.15; // Altura alta desde donde se dispara como una flecha (1.15m sobre el suelo)
+// Variables para Tiro Elevado
+const ALTURA_FLECHA = 1.05; // Altura alta desde donde se dispara naturalmente
 
 function actualizarBotonGlobo(){
   const btn = $('#btnTiroGlobo');
-  const panelInc = $('#controlElevacionAire');
   if (!btn) return;
   const enJuego = !$('#hud').hidden && estado === 'apuntar' && tirador && !tirador.ia;
   btn.hidden = !enJuego;
   btn.classList.toggle('activo', tiroPorAire);
-  btn.innerHTML = tiroPorAire ? '<span>🏹</span>Tiro: <b>FLECHA AIRE</b>' : '<span>🎯</span>Tiro: <b>RASANTE</b>';
-  if (panelInc) panelInc.hidden = !(enJuego && tiroPorAire);
+  btn.innerHTML = tiroPorAire ? '<span>🏹</span>Tiro: <b>ELEVADO</b>' : '<span>🎯</span>Tiro: <b>RASO</b>';
 }
 function actualizarBotonVista(){ $('#btnVista').setAttribute('aria-pressed', vistaAerea ? 'true' : 'false'); }
 function ocultarPuntos(){
@@ -3699,27 +3725,11 @@ $('#btnToggleHUD').addEventListener('click', () => {
   $('#btnToggleHUD').innerHTML = limpio ? '👁️ <b>Mostrar HUD</b>' : '👁️ Pantalla limpia';
 });
 
-// Botón para alternar Tiro Rasante / Tiro por el Aire (Flecha)
+// Botón simple y natural para alternar Tiro Raso / Tiro Elevado
 $('#btnTiroGlobo').addEventListener('click', () => {
   tiroPorAire = !tiroPorAire;
   actualizarBotonGlobo();
-  aviso(tiroPorAire ? '🏹 Tiro Flecha Aérea: sale desde arriba y puede apuntar al piso o elevarlo' : '🎯 Tiro rasante activado (por la tierra)');
-});
-
-// Selección de Inclinación de Flecha (Abajo / Recto / Arriba)
-$('#btnsInclinacion').addEventListener('click', e => {
-  const b = e.target.closest('button'); if (!b) return;
-  const inc = b.dataset.inc;
-  if (inc === 'abajo') modoInclinacionAire = 'abajo';
-  else if (inc === 'arriba') modoInclinacionAire = 'arriba';
-  else modoInclinacionAire = 'recto';
-
-  document.querySelectorAll('#btnsInclinacion button').forEach(bt => {
-    bt.classList.toggle('activo', bt === b);
-  });
-  if (modoInclinacionAire === 'abajo') aviso('⬇️ Flecha Clavada: apunta hacia el piso con fuerza');
-  else if (modoInclinacionAire === 'arriba') aviso('↗️ Flecha Elevada: arco parabólico para larga distancia');
-  else aviso('➡️ Flecha Recta: vuelo directo rasante');
+  aviso(tiroPorAire ? '🏹 Tiro Elevado (Sale desde arriba hacia el objetivo)' : '🎯 Tiro Raso (Por la tierra)');
 });
 
 // Salir al menú (hay que tocar dos veces para no perder la ronda sin querer)
@@ -3963,10 +3973,8 @@ function bucle(ahora){
     const distAlcance = tiroPorAire ? (1.5 + fz * 8.5) : (1.0 + fz * 6.5);
     const cantPuntos = Math.min(24, Math.max(8, Math.round(8 + fz * 16)));
 
-    // Color de mira: Cian neón normal, Dorado con poder, Fucsia/Carmesí en el aire
-    const colHex = tiroPorAire
-      ? (modoInclinacionAire === 'abajo' ? 0xff1744 : modoInclinacionAire === 'arriba' ? 0xffea00 : 0x00e5ff)
-      : tirador.poder ? 0xffcc00 : 0x76ff03;
+    // Color de mira: Cian neón para tiro elevado, Dorado con poder, Verde neón raso
+    const colHex = tiroPorAire ? 0x00e5ff : tirador.poder ? 0xffcc00 : 0x76ff03;
     matPunto.color.set(colHex);
     matDiana.color.set(colHex);
     matCruz.color.set(colHex);
@@ -3976,19 +3984,9 @@ function bucle(ahora){
       const t = 0.25 + (i / 23) * distAlcance;
       let yPunto = 0.015;
       if (tiroPorAire){
-        // Muestra la trayectoria exacta de la flecha tipo Angry Birds
+        // Curva natural: sale a 1.05m y desciende con suavidad hacia el objetivo
         const prog = i / 23;
-        if (modoInclinacionAire === 'abajo'){
-          // Sale desde arriba (1.15m) y se clava rápido hacia el piso
-          yPunto = Math.max(0.015, (R + ALTURA_FLECHA) * (1 - Math.pow(prog, 0.7)));
-        } else if (modoInclinacionAire === 'arriba'){
-          // Parábola de flecha elevada: sube primero hasta ~1.8m y luego desciende
-          const hArco = Math.sin(prog * Math.PI) * 1.2;
-          yPunto = Math.max(0.015, (R + ALTURA_FLECHA) * (1 - prog * 0.9) + hArco);
-        } else {
-          // Flecha recta directa: sale desde 1.15m y desciende con suavidad hacia el objetivo
-          yPunto = Math.max(0.015, (R + ALTURA_FLECHA) * (1 - Math.pow(prog, 1.4)));
-        }
+        yPunto = Math.max(0.015, (R + ALTURA_FLECHA) * (1 - Math.pow(prog, 1.25)));
       }
       p.position.set(b.p.x + d.x * t, yPunto, b.p.z + d.z * t);
       p.scale.setScalar(0.8 + Math.sin(reloj * 10 + i * 0.3) * 0.25);
@@ -4121,6 +4119,15 @@ window.__clasico = {
       });
     }
     actualizarHUD();
+
+    // Si la partida terminó (un jugador fue cazado o eliminado en el 1vs1)
+    if (snap.finRonda) {
+      const g = snap.ganadorId ? jugadores.find(x => x.remotoId === snap.ganadorId) : vivos()[0];
+      estado = 'fin';
+      setTimeout(() => {
+        if (g) terminar(g);
+      }, 1000);
+    }
   },
   nadaDe: () => nadaDe ? nadaDe.nombre : null, viento: () => viento
 };
