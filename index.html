@@ -350,6 +350,51 @@ body.hud-oculto #btnSonido{
   box-shadow:0 0 0 3px rgba(41,182,246,.5), 0 6px 18px rgba(0,0,0,.6);
   transform:scale(1.06);
 }
+
+/* Selector / Control de Elevación de Flecha para Tiro en el Aire */
+#controlElevacionAire{
+  position:fixed;
+  left:max(12px,env(safe-area-inset-left,0px));
+  bottom:calc(env(safe-area-inset-bottom,0px) + 175px);
+  z-index:11;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  background:rgba(15,10,5,0.88);
+  border:2px solid #00e5ff;
+  border-radius:16px;
+  padding:8px 10px;
+  gap:6px;
+  box-shadow:0 4px 16px rgba(0,0,0,.6);
+  color:#fff;
+  font-family:var(--display);
+  touch-action:none;
+}
+#controlElevacionAire span{
+  font-size:12px;
+  color:#80d8ff;
+  letter-spacing:.5px;
+}
+.inclinacion-btns{
+  display:flex;
+  gap:4px;
+}
+.inclinacion-btns button{
+  font-family:var(--display);
+  font-size:12px;
+  padding:5px 8px;
+  border-radius:8px;
+  border:1.5px solid rgba(255,255,255,0.3);
+  background:rgba(255,255,255,0.1);
+  color:#fff;
+  cursor:pointer;
+}
+.inclinacion-btns button.activo{
+  background:#00e5ff;
+  color:#000;
+  border-color:#fff;
+  font-weight:bold;
+}
 </style>
 </head>
 <body>
@@ -359,6 +404,16 @@ body.hud-oculto #btnSonido{
 <div id="toastTurno"></div>
 <button id="btnToggleHUD" type="button" aria-label="Limpiar pantalla para ver mejor">👁️ Pantalla limpia</button>
 <button id="btnTiroGlobo" type="button" hidden aria-label="Cambiar entre tiro por tierra y tiro por el aire"><span>🏹</span>Tiro: Rasante</button>
+
+<!-- Control de Inclinación de Flecha para Tiro en el Aire -->
+<div id="controlElevacionAire" hidden>
+  <span>🏹 INCLINACIÓN FLECHA</span>
+  <div class="inclinacion-btns" id="btnsInclinacion">
+    <button type="button" data-inc="abajo" title="Clavado hacia el piso">⬇️ Clavado</button>
+    <button type="button" data-inc="rasante" class="activo" title="Flecha recta directa">➡️ Recto</button>
+    <button type="button" data-inc="arriba" title="Parábola alta a distancia">↗️ Elevado</button>
+  </div>
+</div>
 
 <!-- Silueta 2D de la mano realista preparando el tiro -->
 <div id="vistaManoTiro" hidden style="position:fixed;bottom:0;left:50%;transform:translateX(-50%);pointer-events:none;z-index:4;transition:all .15s ease-out">
@@ -1293,40 +1348,38 @@ function pasoBola(b, dt, sim){
   }
   if (b.enHueco || b.enMano) return;
   if (b.esTorpedo){
-    // Tiro aéreo elevado con potencia requerida: vuela a 22 cm sobre el suelo
+    // Tiro Flecha Aérea: sale desde arriba (1.15m) y viaja guiada por inclinación (abajo, recto o arriba)
+    // Se le aplica gravedad según la inclinación elegida
+    b.v.y -= G * (b.gravedadFlecha !== undefined ? b.gravedadFlecha : 1.0) * dt;
     b.p.addScaledVector(b.v, dt);
-    let s = Math.hypot(b.v.x, b.v.z);
-    if (s > 0){
-      const ns = Math.max(0, s - DECEL_DIRT * 0.55 * dt); // menor resistencia en vuelo aéreo
-      const k = ns / s; b.v.x *= k; b.v.z *= k;
-      
-      // A medida que la bola va completando la trayectoria y se le va acabando la potencia:
-      // Cuando la velocidad desciende (por debajo del 45% de su velocidad inicial o < 3.2 m/s),
-      // la bola empieza a perder sustentación y cae en picada hacia el suelo
-      if (s < (b.velInicialAerea ? b.velInicialAerea * 0.45 : 3.2)){
-        b.p.y -= G * 0.85 * dt; // Gravedad tirándola al suelo
-        if (b.p.y <= R){
-          // Cae al suelo rebotando y luego rueda hasta terminar en su punto
-          b.p.y = R;
-          b.esTorpedo = false;
-          b.v.y = Math.min(2.2, Math.max(0.6, s * 0.35)); // Rebote vertical
-          b.v.x *= 0.78; b.v.z *= 0.78; // Pérdida de inercia por el impacto
-          if (!sim) {
-            sfx.bote(b.v.y * 1.5);
-            popupArcade('💥 ¡AL SUELO!', b.p.x, R + 0.3, b.p.z, '#00e5ff');
-          }
+    
+    // Fricción aerodinámica
+    let sH = Math.hypot(b.v.x, b.v.z);
+    if (sH > 0){
+      const ns = Math.max(0, sH - DECEL_DIRT * 0.45 * dt);
+      const k = ns / sH; b.v.x *= k; b.v.z *= k;
+    }
+
+    // Impacto contra el suelo: la flecha impacta, rebota según el ángulo y rueda
+    if (b.p.y <= R){
+      b.p.y = R;
+      b.esTorpedo = false;
+      const vImpacto = Math.abs(b.v.y);
+      if (vImpacto > 0.8){
+        b.v.y = vImpacto * 0.38; // Rebote vertical
+        b.v.x *= 0.72; b.v.z *= 0.72;
+        if (!sim) {
+          sfx.bote(b.v.y * 1.5);
+          popupArcade('🎯 ¡FLECHA CLAVADA!', b.p.x, R + 0.35, b.p.z, '#00e5ff');
         }
       } else {
-        // En pleno vuelo permanece elevado a ~22 cm
-        b.p.y = Math.max(R + 0.04, b.p.y);
+        b.v.y = 0;
       }
-    } else {
-      b.esTorpedo = false;
-      b.p.y = R;
     }
-    // Revisar si pasa sobre el hueco
+
+    // Revisar si cae directo en el hueco
     const H0 = huecos.length > 1 ? huecoCerca(b.p) : HOLE, dx = b.p.x - H0.x, dz = b.p.z - H0.z, dh = Math.hypot(dx, dz);
-    if (!b.ignorarHueco && dh < HOLE_R - R * 0.1 && (s < 4.5 || b.p.y <= R + 0.08)){
+    if (!b.ignorarHueco && dh < HOLE_R - R * 0.05 && b.p.y <= R + 0.25){
       b.cayendo = true; b.caidaT = 0; b.v.set(0, 0, 0); b.hoyo = H0; b.esTorpedo = false;
       if (tirador && b === tirador.bola) encholo = true;
       sfx.hueco();
@@ -1458,13 +1511,31 @@ function velocidadPara(desde, ang, distObjetivo, globo){
 function ponerVelocidad(b, ang, vel, modoTiro){
   const d = dirDe(ang);
   if (modoTiro === 'torpedo'){
-    // Tiro por el aire con mayor elevación (22 cm sobre el suelo)
-    // Sale disparado con la potencia requerida en la dirección indicada y vuelo rasante elevado
-    b.p.y = R + 0.22;
+    // Tiro Flecha Aérea:
+    // Sale desde la parte alta (1.15m), como una flecha disparada desde un árbol o torre
+    b.p.y = R + ALTURA_FLECHA;
     b.esTorpedo = true;
-    const vH = vel * 1.35;
-    b.velInicialAerea = vH;
-    b.v.set(d.x * vH, 0, d.z * vH);
+    
+    // Potencia y vector vertical según la inclinación elegida
+    if (modoInclinacionAire === 'abajo'){
+      // Clavado hacia el piso con furia
+      const vH = vel * 1.1;
+      const vY = -vel * 0.75; // Dirección hacia abajo al suelo
+      b.gravedadFlecha = 0.6;
+      b.v.set(d.x * vH, vY, d.z * vH);
+    } else if (modoInclinacionAire === 'arriba'){
+      // Parábola elevada hacia arriba para objetivos lejanos
+      const vH = vel * 1.25;
+      const vY = vel * 0.55; // Sube primero y luego la gravedad la hace bajar
+      b.gravedadFlecha = 1.0;
+      b.v.set(d.x * vH, vY, d.z * vH);
+    } else {
+      // Recto / Rasante: vuelo horizontal directo que va descendiendo suavemente
+      const vH = vel * 1.4;
+      const vY = -vel * 0.15;
+      b.gravedadFlecha = 0.75;
+      b.v.set(d.x * vH, vY, d.z * vH);
+    }
   } else if (modoTiro === 'globo' || modoTiro === true){
     // Salida tradicional
     b.esTorpedo = false;
@@ -3272,13 +3343,19 @@ function mostrarToastTurno(j){
   toastTimer = setTimeout(() => { t.classList.remove('ver'); }, 1400);
 }
 
+// Variables para Tiro Flecha por el Aire
+let modoInclinacionAire = 'recto'; // 'abajo' (clavado al piso), 'recto' (directo), 'arriba' (parábola a distancia)
+const ALTURA_FLECHA = 1.15; // Altura alta desde donde se dispara como una flecha (1.15m sobre el suelo)
+
 function actualizarBotonGlobo(){
   const btn = $('#btnTiroGlobo');
+  const panelInc = $('#controlElevacionAire');
   if (!btn) return;
   const enJuego = !$('#hud').hidden && estado === 'apuntar' && tirador && !tirador.ia;
   btn.hidden = !enJuego;
   btn.classList.toggle('activo', tiroPorAire);
-  btn.innerHTML = tiroPorAire ? '<span>🏹</span>Tiro: <b>POR EL AIRE</b>' : '<span>🎯</span>Tiro: <b>RASANTE</b>';
+  btn.innerHTML = tiroPorAire ? '<span>🏹</span>Tiro: <b>FLECHA AIRE</b>' : '<span>🎯</span>Tiro: <b>RASANTE</b>';
+  if (panelInc) panelInc.hidden = !(enJuego && tiroPorAire);
 }
 function actualizarBotonVista(){ $('#btnVista').setAttribute('aria-pressed', vistaAerea ? 'true' : 'false'); }
 function ocultarPuntos(){
@@ -3622,11 +3699,27 @@ $('#btnToggleHUD').addEventListener('click', () => {
   $('#btnToggleHUD').innerHTML = limpio ? '👁️ <b>Mostrar HUD</b>' : '👁️ Pantalla limpia';
 });
 
-// Botón para alternar Tiro Rasante / Tiro por el Aire (Globo)
+// Botón para alternar Tiro Rasante / Tiro por el Aire (Flecha)
 $('#btnTiroGlobo').addEventListener('click', () => {
   tiroPorAire = !tiroPorAire;
   actualizarBotonGlobo();
-  aviso(tiroPorAire ? '🏹 Tiro por el aire activado (la bola vuela)' : '🎯 Tiro rasante activado (por la tierra)');
+  aviso(tiroPorAire ? '🏹 Tiro Flecha Aérea: sale desde arriba y puede apuntar al piso o elevarlo' : '🎯 Tiro rasante activado (por la tierra)');
+});
+
+// Selección de Inclinación de Flecha (Abajo / Recto / Arriba)
+$('#btnsInclinacion').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const inc = b.dataset.inc;
+  if (inc === 'abajo') modoInclinacionAire = 'abajo';
+  else if (inc === 'arriba') modoInclinacionAire = 'arriba';
+  else modoInclinacionAire = 'recto';
+
+  document.querySelectorAll('#btnsInclinacion button').forEach(bt => {
+    bt.classList.toggle('activo', bt === b);
+  });
+  if (modoInclinacionAire === 'abajo') aviso('⬇️ Flecha Clavada: apunta hacia el piso con fuerza');
+  else if (modoInclinacionAire === 'arriba') aviso('↗️ Flecha Elevada: arco parabólico para larga distancia');
+  else aviso('➡️ Flecha Recta: vuelo directo rasante');
 });
 
 // Salir al menú (hay que tocar dos veces para no perder la ronda sin querer)
@@ -3871,7 +3964,9 @@ function bucle(ahora){
     const cantPuntos = Math.min(24, Math.max(8, Math.round(8 + fz * 16)));
 
     // Color de mira: Cian neón normal, Dorado con poder, Fucsia/Carmesí en el aire
-    const colHex = tiroPorAire ? 0x00e5ff : tirador.poder ? 0xffcc00 : 0x76ff03;
+    const colHex = tiroPorAire
+      ? (modoInclinacionAire === 'abajo' ? 0xff1744 : modoInclinacionAire === 'arriba' ? 0xffea00 : 0x00e5ff)
+      : tirador.poder ? 0xffcc00 : 0x76ff03;
     matPunto.color.set(colHex);
     matDiana.color.set(colHex);
     matCruz.color.set(colHex);
@@ -3881,9 +3976,19 @@ function bucle(ahora){
       const t = 0.25 + (i / 23) * distAlcance;
       let yPunto = 0.015;
       if (tiroPorAire){
-        // Muestra la altura del vuelo en arco proyectado (más elevado 0.24m y desciende)
+        // Muestra la trayectoria exacta de la flecha tipo Angry Birds
         const prog = i / 23;
-        yPunto = R + (0.24 * (1 - prog * 0.85));
+        if (modoInclinacionAire === 'abajo'){
+          // Sale desde arriba (1.15m) y se clava rápido hacia el piso
+          yPunto = Math.max(0.015, (R + ALTURA_FLECHA) * (1 - Math.pow(prog, 0.7)));
+        } else if (modoInclinacionAire === 'arriba'){
+          // Parábola de flecha elevada: sube primero hasta ~1.8m y luego desciende
+          const hArco = Math.sin(prog * Math.PI) * 1.2;
+          yPunto = Math.max(0.015, (R + ALTURA_FLECHA) * (1 - prog * 0.9) + hArco);
+        } else {
+          // Flecha recta directa: sale desde 1.15m y desciende con suavidad hacia el objetivo
+          yPunto = Math.max(0.015, (R + ALTURA_FLECHA) * (1 - Math.pow(prog, 1.4)));
+        }
       }
       p.position.set(b.p.x + d.x * t, yPunto, b.p.z + d.z * t);
       p.scale.setScalar(0.8 + Math.sin(reloj * 10 + i * 0.3) * 0.25);
