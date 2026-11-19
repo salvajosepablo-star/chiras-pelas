@@ -2942,16 +2942,9 @@ function resolverLibre(j){
     if (batallaLoca){
       j.tieneArmaTiraBolas = true;
       j.modoCazador = true;
-      j.balasArma = (j.balasArma || 0) + 6;
-      msgs.push(`⚡ ¡${j.nombre} adquirió el poder en el hueco! (+6 balas)`);
-      if ('speechSynthesis' in window){
-        try {
-          const u = new SpeechSynthesisUtterance('¡Poder adquirido!');
-          u.lang = 'es-CO';
-          u.rate = 1.1;
-          speechSynthesis.speak(u);
-        } catch(e){}
-      }
+      j.balasArma = (j.balasArma || 0) + 10;
+      msgs.push(`⚡ ¡${j.nombre} adquirió el poder en el hueco! (+10 balas)`);
+      reproducirVozPoder();
     } else {
       msgs.push(`¡Encholó! ${j.nombre} tiene el poder`);
     }
@@ -3031,6 +3024,10 @@ function pasoLibre(dt){
       const b = j.bola; if (!j.vivo || !b.activa) return;
       const antes = b.cayendo;
       pasoBola(b, h, false);
+      // En modo batalla, una vez toca el suelo o avanza, deja de estar en mano
+      if (b.enMano && b.p.y <= R + 0.05 && b.v.lengthSq() > 0.001){
+        b.enMano = false;
+      }
       if (!antes && b.cayendo){
         if (j.tiroB) j.tiroB.encholo = true;
         else { const at = jugadores.find(o => o.tiroB && o.tiroB.golpeados.has(j)); if (at) at.tiroB.metidos.add(j); }
@@ -3058,6 +3055,26 @@ function pasoLibre(dt){
   if (tirador) tirador._listoAntes = libreListo(tirador);
   if (tirador && !tirador.vivo){ const otro = jugadores.find(j => j.vivo && j.humano && !j.ia); if (otro) tomarControl(otro); }
 }
+// Reproductor robusto de audio / voz "¡Poder adquirido!"
+function reproducirVozPoder(){
+  // 1. Web Speech Synthesis
+  if ('speechSynthesis' in window){
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance('¡Poder adquirido!');
+      u.lang = 'es-CO';
+      u.rate = 1.05;
+      u.pitch = 1.2;
+      u.volume = 1.0;
+      window.speechSynthesis.speak(u);
+    } catch(e){}
+  }
+  // 2. ChirasAudio narrador
+  if (window.ChirasAudio && window.ChirasAudio.voz){
+    try { window.ChirasAudio.voz('aro', '¡Poder adquirido! ¡Tiene el poder!'); } catch(e){}
+  }
+}
+
 // ✨ Aro de luz: al pasar la bola por encima del círculo grande, se gana el poder
 // El narrador solo cuenta lo que pasa con la bola de quien juega en ESTE celular (y lo que le hacen a ella)
 const esMio = j => { if (typeof j === 'string') j = jugadores.find(x => x.nombre === j); return !!j && !!j.humano && !j.ia; };
@@ -3078,19 +3095,11 @@ function revisarAroLuz(){
     if (batallaLoca){
       j.tieneArmaTiraBolas = true;
       j.modoCazador = true;
-      j.balasArma = (j.balasArma || 0) + 6;
-      aviso(`🎯 ¡${j.nombre} adquirió el poder en el aro!\n¡ENTRÓ EN MODO CAZADOR (+6 balas)!`);
+      j.balasArma = (j.balasArma || 0) + 10;
+      aviso(`🎯 ¡${j.nombre} adquirió el poder en el aro!\n¡ENTRÓ EN MODO CAZADOR (+10 balas)!`);
       popupArcade('⚡ ¡PODER ADQUIRIDO!', b.p.x, R + 0.8, b.p.z, '#ffea00');
       actualizarBotonTiraBolas();
-      // Voz sintética anunciando "¡Poder adquirido!"
-      if ('speechSynthesis' in window){
-        try {
-          const u = new SpeechSynthesisUtterance('¡Poder adquirido!');
-          u.lang = 'es-CO';
-          u.rate = 1.1;
-          speechSynthesis.speak(u);
-        } catch(e){}
-      }
+      reproducirVozPoder();
     } else {
       aviso(`✨ ¡${j.nombre} pasó por el aro de luz!\nTiene el poder`);
     }
@@ -3337,11 +3346,16 @@ function prepararIA(){
 
 // ---------- Controles táctiles ----------
 const lienzo = renderer.domElement;
-// ¿la persona puede apuntar ahora mismo? (en batalla se apunta aunque la bola vaya rodando)
+// ¿la persona puede apuntar ahora mismo?
 function puedeApuntarAhora(){
   if (modoJuego === 'online') {
     const miP = window.ChirasOnline && window.ChirasOnline.getMiJugador();
     if (!miP || !tirador || tirador.remotoId !== miP.id) return false;
+  }
+  // En Modo Batalla: Solo se usa la barra/arrastre para la salida desde la raya.
+  // Una vez rodando en la pista se conduce como un carrito y NO se vuelve a usar la barra de fuerza.
+  if (batallaLoca){
+    return !!(tirador && !tirador.ia && tirador.vivo && !tirador._comido && tirador.bola.activa && tirador.bola.enMano);
   }
   if (estado === 'libre') return !!(tirador && !tirador.ia && tirador.vivo && !tirador._comido && tirador.bola.activa);
   return estado === 'apuntar' && !!tirador && !tirador.ia && !defensor;
@@ -3433,8 +3447,11 @@ function mostrarMando(){
   if (dpad) dpad.hidden = !(enBatalla && tirador && tirador.humano && !tirador.ia);
   const btnFuego = $('#btnDisparoGatillo');
   if (btnFuego){
+    btnFuego.hidden = !(enBatalla && tirador && tirador.humano && !tirador.ia);
     const tieneBalas = tirador && tirador.tieneArmaTiraBolas && tirador.balasArma > 0;
-    btnFuego.hidden = !(enBatalla && tirador && tirador.humano && !tirador.ia && tieneBalas);
+    btnFuego.style.opacity = tieneBalas ? '1' : '0.55';
+    btnFuego.style.filter = tieneBalas ? 'drop-shadow(0 0 14px rgba(255,23,68,0.9))' : 'grayscale(0.6)';
+    btnFuego.innerHTML = tieneBalas ? `<span>💥</span>FUEGO<small style="font-size:10px;display:block">(${tirador.balasArma})</small>` : `<span>🔫</span>ARMA<small style="font-size:9px;display:block">Sin poder</small>`;
   }
 }
 function empezarCarga(fuente){
@@ -3460,18 +3477,18 @@ function curvaPaso(){
   if (!b.activa || b.enMano || b.cayendo || b.enHueco || (cohete && cohete.j === j)) return;
 
   // Manejo de giro continuo con ◀ y ▶ (teclas o botones)
-  const giroVel = 2.8 * (1/60);
+  const giroVel = 3.6 * (1/60);
   if (mando.teclas.izq) apunta.ang -= giroVel;
   if (mando.teclas.der) apunta.ang += giroVel;
 
   // Manejo de avance y retroceso estilo carrito con ▲ y ▼
   const d = dirDe(apunta.ang || 0);
   const vh = Math.hypot(b.v.x, b.v.z);
-  const accelCarro = 7.5 * (1/60);
-  const maxVelCarro = 9.5;
+  const accelCarro = 10.5 * (1/60);
+  const maxVelCarro = 11.5;
 
   if (mando.teclas.arriba){
-    // Acelerar hacia adelante según la dirección que apunta
+    // Acelerar hacia adelante según la dirección que apunta el carrito
     b.v.x += d.x * accelCarro;
     b.v.z += d.z * accelCarro;
     const nuevoV = Math.hypot(b.v.x, b.v.z);
@@ -3482,14 +3499,20 @@ function curvaPaso(){
     if (!j.tiroB) j.tiroB = {golpeados: new Set(), encholo: false, metidos: new Set(), t: 0, poder: j.poder};
   } else if (mando.teclas.abajo){
     // Reversa / Freno hacia atrás
-    b.v.x -= d.x * (accelCarro * 0.7);
-    b.v.z -= d.z * (accelCarro * 0.7);
+    b.v.x -= d.x * (accelCarro * 0.85);
+    b.v.z -= d.z * (accelCarro * 0.85);
     const nuevoV = Math.hypot(b.v.x, b.v.z);
-    if (nuevoV > maxVelCarro * 0.5){
-      b.v.x = (b.v.x / nuevoV) * (maxVelCarro * 0.5);
-      b.v.z = (b.v.z / nuevoV) * (maxVelCarro * 0.5);
+    if (nuevoV > maxVelCarro * 0.6){
+      b.v.x = (b.v.x / nuevoV) * (maxVelCarro * 0.6);
+      b.v.z = (b.v.z / nuevoV) * (maxVelCarro * 0.6);
     }
     if (!j.tiroB) j.tiroB = {golpeados: new Set(), encholo: false, metidos: new Set(), t: 0, poder: j.poder};
+  } else if (vh > 0.05){
+    // Fricción suave de rodamiento estilo carrito
+    const decel = 2.2 * (1/60);
+    const nvh = Math.max(0, vh - decel);
+    b.v.x = (b.v.x / vh) * nvh;
+    b.v.z = (b.v.z / vh) * nvh;
   }
 
   const rodando = !!j.tiroB && b.activa && !b.enMano && !b.cayendo && !b.enHueco && !b.hacia && b.p.y <= R + 0.03 && !(cohete && cohete.j === j) && vh > 0.3;
@@ -4516,12 +4539,16 @@ function camara(dt){
     tp = new V3(cx, span * 1.15 + 4, cz + span * 0.3); tm = new V3(cx, 0, cz);
   } else if (estado === 'libre' && tirador && tirador.vivo){
     const b = tirador.bola;
-    if (libreListo(tirador) || apunta.arrastrando){
+    if (b.enMano || apunta.arrastrando){
       const H = b.hoyo || HOLE, p = b.enHueco ? new V3(H.x, R, H.z) : b.p, d = dirDe(apunta.ang + (apunta.temblor || 0));
       tp = p.clone().addScaledVector(d, -2.6); tp.y = p.y + 1.25; tm = p.clone().addScaledVector(d, 3); tm.y = 0;
     } else {
-      const v = Math.hypot(b.v.x, b.v.z), d = v > 0.3 ? new V3(b.v.x / v, 0, b.v.z / v) : dirDe(apunta.ang);
-      tp = b.p.clone().addScaledVector(d, -3.2); tp.y = 1.8; tm = b.p.clone(); tm.y = 0;
+      // Vista cámara de tercera persona siguiendo el carrito
+      const d = dirDe(apunta.ang || 0);
+      tp = b.p.clone().addScaledVector(d, -2.8);
+      tp.y = b.p.y + 1.35;
+      tm = b.p.clone().addScaledVector(d, 3.5);
+      tm.y = b.p.y + 0.1;
     }
   } else if (estado === 'apuntar' && tirador){
     const b = tirador.bola.p, d = dirDe(apunta.ang + (apunta.temblor || 0));   // la cámara muestra el temblor del pulso
