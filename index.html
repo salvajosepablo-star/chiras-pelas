@@ -44,8 +44,32 @@ html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none;touch-ac
 .chip.fuera{opacity:.45;text-decoration:line-through}
 .chip.activo{outline:2px solid var(--amarillo)}
 .poder{background:var(--amarillo);color:var(--tierra);border-radius:6px;padding:0 5px;font-size:11px;letter-spacing:.6px}
-.fuerza{position:fixed;left:max(14px,env(safe-area-inset-left,0px));top:50%;transform:translateY(-50%);width:16px;height:38vh;border-radius:10px;background:var(--velo);border:2px solid rgba(247,234,208,.35);overflow:hidden;pointer-events:none}
-.fuerza div{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(to top,var(--amarillo),var(--rojo))}
+.fuerza{
+  position:fixed;
+  left:max(14px,env(safe-area-inset-left,0px));
+  top:50%;
+  transform:translateY(-50%);
+  width:26px; /* Más ancha y táctil */
+  height:38vh;
+  border-radius:14px;
+  background:rgba(20,12,6,.75);
+  border:2.5px solid var(--amarillo);
+  overflow:hidden;
+  pointer-events:auto; /* Permite tocar y arrastrar directamente en la barra */
+  cursor:ns-resize;
+  touch-action:none;
+  box-shadow:0 4px 15px rgba(0,0,0,.5);
+}
+.fuerza div{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(to top,var(--amarillo),var(--rojo));pointer-events:none}
+.fuerza::after{
+  content:'⚡';
+  position:absolute;
+  top:4px;
+  left:50%;
+  transform:translateX(-50%);
+  font-size:12px;
+  pointer-events:none;
+}
 .pista{position:fixed;left:0;right:0;bottom:0;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 92px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(96px,env(safe-area-inset-right,0px));pointer-events:none}
 .pista p{margin:0;display:inline-block;background:var(--velo);border-radius:12px;padding:8px 12px;font-size:14px;line-height:1.35}
 .botones{position:fixed;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 14px);display:flex;flex-direction:column;gap:8px}
@@ -156,10 +180,29 @@ button.item:active{border-color:var(--amarillo)}
 #btnSaltar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + var(--altoBarra,70px) + 140px);z-index:8;font-family:var(--display);font-size:20px;padding:10px 22px;border-radius:999px;border:3px solid #fff;background:linear-gradient(#2c6fd6,#16449a);color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.5);touch-action:manipulation}
 #btnSaltar[hidden]{display:none}
 #btnSaltar:active{transform:translateX(-50%) scale(.94)}
-/* Minimapa arriba a la izquierda (transparente: se ve la cancha por detrás) */
-#minimapa{display:none!important}
-#minimapa[hidden]{display:none}
-body.conMapa .hud{padding-left:calc(max(8px,env(safe-area-inset-left,0px)) + 112px)}
+/* Minimapa transparente, flotante y arrastrable (movible a cualquier lugar de la pantalla) */
+#minimapa{
+  position:fixed;
+  left:max(8px,env(safe-area-inset-left,0px));
+  top:calc(env(safe-area-inset-top,0px) + 8px);
+  width:96px;
+  height:120px;
+  z-index:15;
+  border-radius:12px;
+  border:1.5px solid rgba(255,255,255,.3);
+  background:rgba(20,12,6,.15); /* Transparente sin tapar la visión */
+  backdrop-filter:blur(1px);
+  cursor:move;
+  touch-action:none;
+  box-shadow:0 4px 12px rgba(0,0,0,.25);
+  transition:border-color .2s;
+}
+#minimapa:active{
+  border-color:#00e5ff;
+  background:rgba(20,12,6,.3);
+}
+#minimapa[hidden]{display:none!important}
+body.conMapa .hud{padding-left:0}
 
 /* Botón de Tutorial en el juego */
 #btnTutorial{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);right:calc(max(12px,env(safe-area-inset-right,0px)) + 50px);z-index:10;background:rgba(30,18,8,.85);border:2px solid var(--amarillo);color:var(--amarillo);border-radius:20px;padding:5px 12px;font-family:var(--display);font-size:13px;display:flex;align-items:center;gap:5px;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.4);transition:transform .15s}
@@ -810,11 +853,11 @@ const CUARTA = 0.6;
 const DESQ_CUARTAS = 2;      // el Desquadris corre la bola dos cuartas de lado           // una cuarta (meñique a pulgar) a escala del juego
 const BAR_L = 0.9;            // largo de la barrera
 const MIRA_CLASICA = false;   // sin línea de puntería en el clásico: todo a pulso
-const CANTOS_DEFENSIVOS = ['barrera', 'desquadris', 'ochera', 'carambola', 'arena', 'viento', 'boloncho', 'cohete', 'iman', 'escudo', 'trueno', 'nitro', 'congelar'];   // Nada de nada los anula todos
+const CANTOS_DEFENSIVOS = ['barrera', 'desquadris', 'ochera', 'carambola', 'arena', 'viento', 'boloncho', 'cohete', 'iman', 'escudo', 'nitro'];   // Nada de nada los anula todos
 const CANTOS = {
   barrera: 'Barrera', desquadris: 'Desquadris', ochera: 'Ochera muere', carambola: 'Carambola muere',
   arena: 'Arena movediza', viento: 'Viento', boloncho: 'Boloncho', cohete: 'Cohete',
-  iman: 'Imán', escudo: 'Escudo Neón', trueno: 'Trueno', nitro: 'Nitro Fuego', congelar: 'Congelar'
+  iman: 'Imán', escudo: 'Escudo Neón', nitro: 'Nitro Fuego'
 };
 const COLORES = [0xd7263d, 0x1f6fd1, 0xf2b705, 0x20a65a, 0xff7b2e, 0xb05cff, 0x2ee6d6, 0xff4fa3];
 const NOMBRES_IA = ['El Mono', 'La Flaca', 'Juancho', 'La Mona', 'El Tigre', 'Pecas', 'Toño'];
@@ -1742,9 +1785,7 @@ const BARRA = [
   ['boloncho', '🔴', 'Boloncho'],
   ['iman', '🧲', 'Imán'],
   ['escudo', '🔮', 'Escudo'],
-  ['trueno', '⚡', 'Trueno'],
   ['nitro', '🔥', 'Nitro'],
-  ['congelar', '🧊', 'Hielo'],
   ['cohete', '🚀', 'Cohete'],
   ['nada', '🚫', 'Nada']
 ];
@@ -2170,7 +2211,7 @@ function limpiarDefensas(){
     j.nada = false; j.nadaTurno = false;
     j.cantos = {
       barrera: 1, desquadris: 1, ochera: 1, carambola: 1, arena: 1, viento: 1, boloncho: 1, cohete: 1,
-      iman: 1, escudo: 1, trueno: 1, nitro: 1, congelar: 1
+      iman: 1, escudo: 1, nitro: 1
     };
   });
   arenas.forEach(a => scene.remove(a.mesh)); arenas = [];
@@ -2864,7 +2905,7 @@ function revancha(j, id){
   // vuelve sin ventajas: sin el poder ni lo que tenía
   Object.assign(j, {vivo: true, poder: false, nada: false, nadaTurno: false, tragadas: [], revanchas: (j.revanchas || 0) + 1,
     cantos: {barrera: 1, desquadris: 1, ochera: 1, carambola: 1, arena: 1, viento: 1, boloncho: 1, cohete: 1,
-             iman: 1, escudo: 1, trueno: 1, nitro: 1, congelar: 1}});
+             iman: 1, escudo: 1, nitro: 1}});
   defensas.ochera.delete(j); defensas.carambola.delete(j);
   aviso(`🔥 ¡La Revancha!\n${j.nombre} apuesta su ${ESTILO[id].nombre} y vuelve desde la raya`);
   if (ganchos.alRevancha) ganchos.alRevancha(j);
@@ -3725,6 +3766,82 @@ $('#btnToggleHUD').addEventListener('click', () => {
   $('#btnToggleHUD').innerHTML = limpio ? '👁️ <b>Mostrar HUD</b>' : '👁️ Pantalla limpia';
 });
 
+// Minimapa arrastrable libremente por la pantalla si estorba
+(() => {
+  const m = $('#minimapa');
+  if (!m) return;
+  let arrastrandoMapa = false;
+  let offX = 0, offY = 0;
+
+  m.addEventListener('pointerdown', e => {
+    // Si hace click/touch en el minimapa, empieza arrastre
+    arrastrandoMapa = true;
+    const r = m.getBoundingClientRect();
+    offX = e.clientX - r.left;
+    offY = e.clientY - r.top;
+    try { m.setPointerCapture(e.pointerId); } catch(err){}
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  m.addEventListener('pointermove', e => {
+    if (!arrastrandoMapa) return;
+    const nx = Math.max(0, Math.min(window.innerWidth - m.offsetWidth, e.clientX - offX));
+    const ny = Math.max(0, Math.min(window.innerHeight - m.offsetHeight, e.clientY - offY));
+    m.style.left = nx + 'px';
+    m.style.top = ny + 'px';
+    m.style.right = 'auto';
+    m.style.bottom = 'auto';
+  });
+
+  const soltarMapa = e => {
+    if (!arrastrandoMapa) return;
+    arrastrandoMapa = false;
+    try { m.releasePointerCapture(e.pointerId); } catch(err){}
+  };
+  m.addEventListener('pointerup', soltarMapa);
+  m.addEventListener('pointercancel', soltarMapa);
+})();
+
+// Barra de Potencia interactiva: tocar o arrastrar directamente para fijar la fuerza deseada
+(() => {
+  const fBar = $('#fuerza');
+  if (!fBar) return;
+  let tocandoFuerza = false;
+
+  function actualizarFuerzaDesdeBarra(e){
+    const r = fBar.getBoundingClientRect();
+    // 0 abajo, 1 arriba
+    const fraccion = (r.bottom - e.clientY) / r.height;
+    apunta.fuerza = Math.max(0.04, Math.min(1.0, fraccion));
+    $('#fuerzaFill').style.height = (apunta.fuerza * 100) + '%';
+  }
+
+  fBar.addEventListener('pointerdown', e => {
+    if (!puedeApuntarAhora()) return;
+    tocandoFuerza = true;
+    try { fBar.setPointerCapture(e.pointerId); } catch(err){}
+    actualizarFuerzaDesdeBarra(e);
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  fBar.addEventListener('pointermove', e => {
+    if (!tocandoFuerza) return;
+    actualizarFuerzaDesdeBarra(e);
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  const soltarFuerza = e => {
+    if (!tocandoFuerza) return;
+    tocandoFuerza = false;
+    try { fBar.releasePointerCapture(e.pointerId); } catch(err){}
+  };
+  fBar.addEventListener('pointerup', soltarFuerza);
+  fBar.addEventListener('pointercancel', soltarFuerza);
+})();
+
 // Botón simple y natural para alternar Tiro Raso / Tiro Elevado
 $('#btnTiroGlobo').addEventListener('click', () => {
   tiroPorAire = !tiroPorAire;
@@ -3814,8 +3931,17 @@ function camara(dt){
     }
   } else if (estado === 'apuntar' && tirador){
     const b = tirador.bola.p, d = dirDe(apunta.ang + (apunta.temblor || 0));   // la cámara muestra el temblor del pulso
-    tp = b.clone().addScaledVector(d, -2.6); tp.y = b.y + 1.25;
-    tm = b.clone().addScaledVector(d, 3); tm.y = 0;
+    if (tiroPorAire){
+      // VISTA ELEVADA Y CENITAL: Ver desde lo alto hacia dónde va a tirar
+      tp = b.clone().addScaledVector(d, -3.2);
+      tp.y = b.y + 4.8; // Elevada para ver claramente todo el campo y el destino
+      const distAlcance = 1.5 + (apunta.fuerza || 0.05) * 8.5;
+      tm = b.clone().addScaledVector(d, distAlcance * 0.7);
+      tm.y = 0;
+    } else {
+      tp = b.clone().addScaledVector(d, -2.6); tp.y = b.y + 1.25;
+      tm = b.clone().addScaledVector(d, 3); tm.y = 0;
+    }
   } else if (seguir){
     // seguir a la bola que más rápido se mueve
     let rap = seguir, vr = seguir.v.length();
