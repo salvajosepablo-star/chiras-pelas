@@ -1270,18 +1270,43 @@ function pasoBola(b, dt, sim){
     return;
   }
   if (b.enHueco || b.enMano) return;
-  const aire = b.p.y > R + 0.0005 || b.v.y > 0;
-  if (aire) b.v.y -= G * dt;
-  b.p.addScaledVector(b.v, dt);
-  if (b.p.y <= R){
-    b.p.y = R;
-    if (b.v.y < -0.9){
-      const f = -b.v.y;
-      b.v.y = f * 0.32; b.v.x *= 0.72; b.v.z *= 0.72;
-      if (!sim) sfx.bote(f);
-    } else b.v.y = 0;
+  if (b.esTorpedo){
+    // Tiro torpedo aéreo (vuela a 4 cm sobre la tierra sin pivotar ni caer bruscamente)
+    b.p.y = R + 0.04;
+    b.v.y = 0;
+    b.p.addScaledVector(b.v, dt);
+    let s = Math.hypot(b.v.x, b.v.z);
+    if (s > 0){
+      const ns = Math.max(0, s - DECEL_DIRT * 0.75 * dt); // menor fricción porque va por el aire
+      const k = ns / s; b.v.x *= k; b.v.z *= k;
+      if (ns < 0.2){
+        // Cuando pierde casi toda la velocidad aterriza suavemente en la tierra
+        b.esTorpedo = false;
+        b.p.y = R;
+      }
+    }
+    // Revisar si pasa sobre el hueco
+    const H0 = huecos.length > 1 ? huecoCerca(b.p) : HOLE, dx = b.p.x - H0.x, dz = b.p.z - H0.z, dh = Math.hypot(dx, dz);
+    if (!b.ignorarHueco && dh < HOLE_R - R * 0.1 && s < 4.5){
+      b.cayendo = true; b.caidaT = 0; b.v.set(0, 0, 0); b.hoyo = H0; b.esTorpedo = false;
+      if (tirador && b === tirador.bola) encholo = true;
+      sfx.hueco();
+      return;
+    }
+  } else {
+    const aire = b.p.y > R + 0.0005 || b.v.y > 0;
+    if (aire) b.v.y -= G * dt;
+    b.p.addScaledVector(b.v, dt);
+    if (b.p.y <= R){
+      b.p.y = R;
+      if (b.v.y < -0.9){
+        const f = -b.v.y;
+        b.v.y = f * 0.32; b.v.x *= 0.72; b.v.z *= 0.72;
+        if (!sim) sfx.bote(f);
+      } else b.v.y = 0;
+    }
   }
-  if (b.p.y <= R + 0.0005 && b.v.y === 0){
+  if (!b.esTorpedo && b.p.y <= R + 0.0005 && b.v.y === 0){
     let s = Math.hypot(b.v.x, b.v.z);
     if (!sim){
       const H0 = huecos.length > 1 ? huecoCerca(b.p) : HOLE, dx = b.p.x - H0.x, dz = b.p.z - H0.z, dh = Math.hypot(dx, dz);
@@ -1391,10 +1416,24 @@ function velocidadPara(desde, ang, distObjetivo, globo){
   }
   return (lo + hi) / 2;
 }
-function ponerVelocidad(b, ang, vel, globo){
+function ponerVelocidad(b, ang, vel, modoTiro){
   const d = dirDe(ang);
-  if (globo) b.v.set(d.x * vel * 0.8, vel * 0.35, d.z * vel * 0.8);
-  else b.v.set(d.x * vel, 0, d.z * vel);
+  if (modoTiro === 'torpedo'){
+    // Tiro por el aire estilo Torpedo / Cohete:
+    // La bola levita 4 cm sobre la tierra (R + 0.04) y sale disparada en línea recta con hiperpotencia y precisión láser, sin pivotar
+    b.p.y = R + 0.04;
+    b.esTorpedo = true;
+    b.v.set(d.x * vel * 1.35, 0, d.z * vel * 1.35); // 35% más de potencia, sin parábola ni rebote hacia arriba
+  } else if (modoTiro === 'globo' || modoTiro === true){
+    // Salida tradicional
+    b.esTorpedo = false;
+    b.v.set(d.x * vel * 0.8, vel * 0.35, d.z * vel * 0.8);
+  } else {
+    // Rasante por tierra
+    b.esTorpedo = false;
+    b.p.y = R;
+    b.v.set(d.x * vel, 0, d.z * vel);
+  }
 }
 
 // ---------- Flujo del juego ----------
@@ -2044,11 +2083,10 @@ function tirar(ang, fuerza, esRemoto){
   golpeados = new Set(); metidos = new Set(); encholo = false; tiempoRodando = 0; poderAlTirar = !!tirador.poder; tocoFicha = false;
   arenas.forEach(a => { a.dentroAlTirar = Math.hypot(tirador.bola.p.x - a.x, tirador.bola.p.z - a.z) < ARENA_R; });
   
-  const esGlobo = (fase === 'salida' || tiroPorAire);
-  if (fase === 'salida'){ b.enMano = false; ponerVelocidad(b, ang, vel, true); }
+  const tipoTiro = (fase === 'salida') ? 'globo' : tiroPorAire ? 'torpedo' : 'tierra';
+  if (fase === 'salida'){ b.enMano = false; ponerVelocidad(b, ang, vel, 'globo'); }
   else {
-    b.p.y = R;
-    ponerVelocidad(b, ang, vel, esGlobo);
+    ponerVelocidad(b, ang, vel, tipoTiro);
   }
   apunta.fuerza = 0; ocultarPuntos();
   estado = 'rodando'; seguir = b;
