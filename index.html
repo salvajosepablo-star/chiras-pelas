@@ -448,6 +448,72 @@ body.hud-oculto #btnSonido{
   50%{ transform:scale(1.06); box-shadow:0 0 20px rgba(255,23,68,1); }
 }
 
+/* Control D-PAD estilo Carrito en Celular para Modo Batalla */
+#dpadBatalla{
+  position:fixed;
+  left:max(20px,env(safe-area-inset-left,0px));
+  bottom:calc(env(safe-area-inset-bottom,0px) + 30px);
+  z-index:15;
+  display:grid;
+  grid-template-columns:repeat(3, 52px);
+  grid-template-rows:repeat(3, 52px);
+  gap:6px;
+  touch-action:none;
+}
+.dpad-btn{
+  background:rgba(20,12,6,0.85);
+  border:2px solid rgba(255,234,0,0.7);
+  color:#fff;
+  font-size:22px;
+  border-radius:14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  touch-action:none;
+  user-select:none;
+  box-shadow:0 4px 12px rgba(0,0,0,0.6);
+  transition:background .1s, transform .1s;
+}
+.dpad-btn:active, .dpad-btn.activo{
+  background:linear-gradient(135deg, #ffd600, #ff6d00);
+  color:#000;
+  transform:scale(0.92);
+}
+.dpad-up{ grid-column:2; grid-row:1; }
+.dpad-left{ grid-column:1; grid-row:2; }
+.dpad-down{ grid-column:2; grid-row:3; }
+.dpad-right{ grid-column:3; grid-row:2; }
+
+/* Botón flotante de Disparo (Gatillo) para celular */
+#btnDisparoGatillo{
+  position:fixed;
+  right:max(24px,env(safe-area-inset-right,0px));
+  bottom:calc(env(safe-area-inset-bottom,0px) + 50px);
+  z-index:15;
+  width:84px;
+  height:84px;
+  border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #ff5252, #d50000 65%, #880000);
+  border:3px solid #ffea00;
+  color:#fff;
+  font-family:var(--display);
+  font-size:13px;
+  font-weight:bold;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:2px;
+  cursor:pointer;
+  box-shadow:0 0 20px rgba(255,23,68,0.8), 0 6px 16px rgba(0,0,0,0.7);
+  touch-action:manipulation;
+  transition:all .15s ease;
+  animation:pulsoArma 1.2s infinite;
+}
+#btnDisparoGatillo span{ font-size:26px; line-height:1; }
+#btnDisparoGatillo:active{ transform:scale(0.88); filter:brightness(1.3); }
+
 /* Selector / Control de Elevación de Flecha para Tiro en el Aire */
 #controlElevacionAire{
   position:fixed;
@@ -533,6 +599,15 @@ body.hud-oculto #btnSonido{
 <div class="mando" id="mandoGiro" hidden><button type="button" data-g="-1" aria-label="Apuntar a la izquierda">◀</button><button type="button" data-g="1" aria-label="Apuntar a la derecha">▶</button></div>
 <button class="mando" id="mandoTiro" type="button" hidden aria-label="Mantener para cargar la fuerza y soltar para tirar"><span>🎯</span>TIRAR</button>
 <div class="mando" id="mandoStick" hidden aria-label="Joystick: a los lados apunta, hacia abajo carga la fuerza, suelte para tirar"><div class="perilla"></div><div class="guia">◀ apunta ▶ · ▼ fuerza</div></div>
+
+<!-- Controles Especiales Carrito + Gatillo Disparo en Celular para Modo Batalla -->
+<div id="dpadBatalla" hidden aria-label="Controles de carrito para mover la canica">
+  <button type="button" class="dpad-btn dpad-up" data-k="arriba" aria-label="Adelante">▲</button>
+  <button type="button" class="dpad-btn dpad-left" data-k="izq" aria-label="Giro izquierda">◀</button>
+  <button type="button" class="dpad-btn dpad-right" data-k="der" aria-label="Giro derecha">▶</button>
+  <button type="button" class="dpad-btn dpad-down" data-k="abajo" aria-label="Reversa">▼</button>
+</div>
+<button id="btnDisparoGatillo" type="button" hidden aria-label="Disparar arma Tira-Bolas"><span>💥</span>FUEGO</button>
 <div class="sorteo" id="sorteo" hidden><div class="sorteoCaja"><h2>🎲 Sorteo</h2><p>¿Quién lanza primero?</p><div class="sorteoRueda" id="sorteoRueda">🎲</div><ol id="sorteoLista"></ol></div></div>
 <div class="revBtns" id="revBtns"></div>
 <div class="capa" id="revCapa" hidden style="z-index:20"><div class="tarjeta">
@@ -1872,6 +1947,10 @@ function referencia(d){
   return cerca(otros.filter(o => o.poder)) || cerca(otros);
 }
 function puedeCantar(h, k){
+  if (k === 'cohete' && batallaLoca){
+    // En Modo Batalla, el Cohete aniquilador solo se puede usar si se adquirió el poder en los aros/hueco
+    return !cohete && h.poder && h.vivo && !h.nada && h.cantos.cohete > 0 && !h.bola.enMano && !!objetivoCohete(h);
+  }
   if (k === 'cohete' && estado === 'libre') return !cohete && libreListo(h) && !h.nada && h.cantos.cohete > 0 && !h.bola.enMano && !!objetivoCohete(h);
   if (k === 'cohete') return batallaLoca && estado === 'apuntar' && tirador === h && h.vivo && !h.nada && h.cantos.cohete > 0 && h.bola.activa && !h.bola.enMano && !!objetivoCohete(h);
   if (!enPartida() || !h.vivo || !(h.cantos[k] > 0) || h.nada || !h.bola.activa || h.bola.enMano || h.bola.cayendo) return false;
@@ -2045,16 +2124,26 @@ function cantosIA(tir){
   return alguno;
 }
 const matBarrera = new THREE.MeshLambertMaterial({color: 0x8a5a2b});
+const matBarreraHielo = new THREE.MeshLambertMaterial({color: 0x80d8ff, transparent: true, opacity: 0.85, emissive: 0x0091ea, emissiveIntensity: 0.4});
 const geoBarrera = new THREE.BoxGeometry(BAR_L, 0.16, 0.07);
+const BAR_L_BATALLA = 3.6; // En Modo Batalla es una pared gigante estilo Fortnite / Free Fire
+const geoBarreraBatalla = new THREE.BoxGeometry(BAR_L_BATALLA, 0.75, 0.22);
 function ponerBarrera(d){
-  const c = referencia(d).bola.p, b = d.bola.p;
+  const ref = referencia(d);
+  const c = ref ? ref.bola.p : new V3(d.bola.p.x, R, d.bola.p.z - 2);
+  const b = d.bola.p;
   let dx = c.x - b.x, dz = c.z - b.z; const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
-  const off = Math.min(0.45, L * 0.5);
+  const off = batallaLoca ? 0.9 : Math.min(0.45, L * 0.5);
   const cx = b.x + dx * off, cz = b.z + dz * off;
-  const mesh = new THREE.Mesh(geoBarrera, matBarrera);
-  mesh.position.set(cx, 0.08, cz); mesh.rotation.y = Math.atan2(dx, dz);
+  const esBat = batallaLoca;
+  const mesh = new THREE.Mesh(esBat ? geoBarreraBatalla : geoBarrera, esBat ? matBarreraHielo : matBarrera);
+  mesh.position.set(cx, esBat ? 0.38 : 0.08, cz); mesh.rotation.y = Math.atan2(dx, dz);
   mesh.castShadow = true; mesh.receiveShadow = true; scene.add(mesh);
-  barreras.push({cx, cz, ux: dz, uz: -dx, mesh, t0: reloj});
+  barreras.push({cx, cz, ux: dz, uz: -dx, largo: esBat ? BAR_L_BATALLA : BAR_L, alto: esBat ? 0.75 : 0.16, mesh, t0: reloj, esBatalla: esBat});
+  if (esBat){
+    popupArcade('🧊 ¡MURO DE HIELO!', cx, R + 0.8, cz, '#00e5ff');
+    aviso(`🛡️ ¡${d.nombre} levantó una Barrera Gigante de Hielo!`);
+  }
 }
 function romperBarrera(w, b){
   if (w.rota) return;
@@ -2066,12 +2155,15 @@ function romperBarrera(w, b){
   if (ganchos.alRomperBarrera) ganchos.alRomperBarrera(new V3(w.cx, 0.1, w.cz));
 }
 function chocarBarreras(b){
-  if (b.enMano || b.cayendo || b.enHueco || b.p.y > 0.16 + R) return;
+  if (b.enMano || b.cayendo || b.enHueco) return;
   barreras.forEach(w => {
+    const altoB = w.alto || 0.16;
+    if (b.p.y > altoB + R) return;
+    const lHalf = (w.largo || BAR_L) / 2;
     const dx = b.p.x - w.cx, dz = b.p.z - w.cz;
-    const u = Math.max(-BAR_L / 2, Math.min(BAR_L / 2, dx * w.ux + dz * w.uz));
+    const u = Math.max(-lHalf, Math.min(lHalf, dx * w.ux + dz * w.uz));
     const vx = dx - w.ux * u, vz = dz - w.uz * u, d = Math.hypot(vx, vz);
-    const lim = (b.radio || R) + 0.035;
+    const lim = (b.radio || R) + (w.esBatalla ? 0.11 : 0.035);
     if (d >= lim || d < 1e-6) return;
     if (b.boloncho){ romperBarrera(w, b); return; }   // el Boloncho la rompe y sigue derecho
     const nx = vx / d, nz = vz / d;
@@ -2269,10 +2361,13 @@ function limpiarNuevosPoderes(){
     j.tieneIman = false;
     j.tieneNitro = false;
     j.congelado = false;
+    j.modoCazador = false;
+    j.tieneArmaTiraBolas = false;
     if (j.bola) j.bola.iman = null;
   });
   escudosMeshes.forEach(m => { scene.remove(m); });
   escudosMeshes.clear();
+  limpiarArmasVisuales();
 }
 
 function limpiarDefensas(){
@@ -2602,8 +2697,9 @@ function pasoCohete(h){
   b.p.x += c.dir.x * COHETE.vel * h; b.p.z += c.dir.z * COHETE.vel * h; b.last.copy(b.p);
   // la barrera de otro lo para (y se rompe)
   for (const w of barreras.slice()){
-    const dx = b.p.x - w.cx, dz = b.p.z - w.cz, u = Math.max(-BAR_L / 2, Math.min(BAR_L / 2, dx * w.ux + dz * w.uz));
-    if (Math.hypot(dx - w.ux * u, dz - w.uz * u) < 0.18){ romperBarrera(w, b); aviso('¡La barrera paró el cohete!'); return finCohete('barrera'); }
+    const lHalf = (w.largo || BAR_L) / 2;
+    const dx = b.p.x - w.cx, dz = b.p.z - w.cz, u = Math.max(-lHalf, Math.min(lHalf, dx * w.ux + dz * w.uz));
+    if (Math.hypot(dx - w.ux * u, dz - w.uz * u) < (w.esBatalla ? 0.45 : 0.18)){ romperBarrera(w, b); aviso('¡La barrera paró el cohete!'); return finCohete('barrera'); }
   }
   // la arena movediza de otro se lo traga y lo escupe lejos
   for (const a of arenas){
@@ -2841,7 +2937,26 @@ function resolverLibre(j){
     const robados = victimas.filter(v => v.poder && v.vivo);
     if (robados.length){ robados.forEach(v => v.poder = false); robo = true; msgs.push(`¡${j.nombre} le quitó el poder a ${robados.map(v => v.nombre).join(' y ')}!`); }
   }
-  if (t.encholo && !castigo && !j.poder && j.vivo){ j.poder = true; msgs.push(`¡Encholó! ${j.nombre} tiene el poder`); sfx.poder(); }
+  if (t.encholo && !castigo && !j.poder && j.vivo){
+    j.poder = true;
+    if (batallaLoca){
+      j.tieneArmaTiraBolas = true;
+      j.modoCazador = true;
+      j.balasArma = (j.balasArma || 0) + 6;
+      msgs.push(`⚡ ¡${j.nombre} adquirió el poder en el hueco! (+6 balas)`);
+      if ('speechSynthesis' in window){
+        try {
+          const u = new SpeechSynthesisUtterance('¡Poder adquirido!');
+          u.lang = 'es-CO';
+          u.rate = 1.1;
+          speechSynthesis.speak(u);
+        } catch(e){}
+      }
+    } else {
+      msgs.push(`¡Encholó! ${j.nombre} tiene el poder`);
+    }
+    sfx.poder();
+  }
   if (j.boloncho) quitarBoloncho(j);
   // las bolas que echaron al hueco salen
   jugadores.forEach(o => { if (o !== j && o.bola.enHueco && !o.tiroB) sacarDelHueco(o.bola); });
@@ -2965,14 +3080,23 @@ function revisarAroLuz(){
       j.tieneArmaTiraBolas = true;
       j.modoCazador = true;
       j.balasArma = (j.balasArma || 0) + 6;
-      aviso(`🎯 ¡${j.nombre} pasó por el aro de luz!\n¡ENTRÓ EN MODO CAZADOR (+6 balas)!`);
-      popupArcade('🎯 MODO CAZADOR', b.p.x, R + 0.8, b.p.z, '#ff1744');
+      aviso(`🎯 ¡${j.nombre} adquirió el poder en el aro!\n¡ENTRÓ EN MODO CAZADOR (+6 balas)!`);
+      popupArcade('⚡ ¡PODER ADQUIRIDO!', b.p.x, R + 0.8, b.p.z, '#ffea00');
       actualizarBotonTiraBolas();
+      // Voz sintética anunciando "¡Poder adquirido!"
+      if ('speechSynthesis' in window){
+        try {
+          const u = new SpeechSynthesisUtterance('¡Poder adquirido!');
+          u.lang = 'es-CO';
+          u.rate = 1.1;
+          speechSynthesis.speak(u);
+        } catch(e){}
+      }
     } else {
       aviso(`✨ ¡${j.nombre} pasó por el aro de luz!\nTiene el poder`);
     }
     sfx.poder();
-    if (window.ChirasAudio) window.ChirasAudio.voz('aro', '¡Aro de luz! ¡Tiene el poder!', [j]);
+    if (window.ChirasAudio) window.ChirasAudio.voz('aro', '¡Poder adquirido! ¡Tiene el poder!', [j]);
     if (window.ChirasGraficos){ window.ChirasGraficos.onda(b.p, 0xffe27a, 3); window.ChirasGraficos.destello(b.p, 0xffe27a, 1.2); }
     if (ganchos.alAroLuz) ganchos.alAroLuz(j);
     actualizarHUD();
@@ -3276,7 +3400,7 @@ lienzo.addEventListener('pointerup', () => { if (!mando.cargando) soltar(); });
 lienzo.addEventListener('pointercancel', () => { if (!mando.cargando) soltar(); });
 
 // ---------- Otros controles: botones, joystick, teclado y mouse (Clásico y Batalla) ----------
-const mando = {modo: 'honda', giroBtn: 0, giroT: 0, cargando: false, fuente: null, sube: 1, stick: {x: 0, y: 0}, teclas: {izq: false, der: false, fino: false}};
+const mando = {modo: 'honda', giroBtn: 0, giroT: 0, cargando: false, fuente: null, sube: 1, stick: {x: 0, y: 0}, teclas: {izq: false, der: false, fino: false, arriba: false, abajo: false}};
 const PISTAS_CONTROL = {
   honda: '🎯 Modo Resorte / Cauchera: arrastre la bola hacia atrás en la dirección contraria para apuntar y tensar. ¡Suelte como una resortera!',
   flick: '⚡ Modo Deslizar Rápido: lance con un golpe de dedo veloz hacia adelante como en los juegos de fútbol o bolos.',
@@ -3295,12 +3419,24 @@ function ponerControl(m){
 }
 function mostrarMando(){
   const enJuego = !$('#hud').hidden;
+  const enBatalla = enJuego && batallaLoca;
   const guia = $('#mandoStick .guia'); if (guia) guia.textContent = batallaLoca ? '◀ curva ▶ · ▼ fuerza' : '◀ apunta ▶ · ▼ fuerza';
-  const pt = PISTAS_CONTROL[mando.modo] + (batallaLoca ? ' Batalla: con la bola rodando, a los lados le da curva.' : '');
+  const pt = batallaLoca
+    ? '🏎️ Modo Carrito: Manéjela con flechas (▲ Adelante, ▼ Reversa, ◀ ▶ Giro) · Espacio / Botón Fuego: Disparar Tira-Bolas'
+    : (PISTAS_CONTROL[mando.modo] || '');
   if (enJuego && $('#pistaTxt').textContent !== pt) $('#pistaTxt').textContent = pt;
-  $('#mandoGiro').hidden = !(enJuego && mando.modo === 'botones');
-  $('#mandoTiro').hidden = !(enJuego && mando.modo === 'botones');
-  $('#mandoStick').hidden = !(enJuego && mando.modo === 'joystick');
+  $('#mandoGiro').hidden = !(enJuego && !batallaLoca && mando.modo === 'botones');
+  $('#mandoTiro').hidden = !(enJuego && !batallaLoca && mando.modo === 'botones');
+  $('#mandoStick').hidden = !(enJuego && !batallaLoca && mando.modo === 'joystick');
+  
+  // D-PAD y botón gatillo de disparo táctil en celular para Modo Batalla
+  const dpad = $('#dpadBatalla');
+  if (dpad) dpad.hidden = !(enBatalla && tirador && tirador.humano && !tirador.ia);
+  const btnFuego = $('#btnDisparoGatillo');
+  if (btnFuego){
+    const tieneBalas = tirador && tirador.tieneArmaTiraBolas && tirador.balasArma > 0;
+    btnFuego.hidden = !(enBatalla && tirador && tirador.humano && !tirador.ia && tieneBalas);
+  }
 }
 function empezarCarga(fuente){
   if (!puedeApuntarAhora() || mando.cargando || apunta.arrastrando) return false;
@@ -3314,22 +3450,59 @@ function soltarCarga(fuente){
   mando.cargando = false; mando.fuente = null;
   soltar();
 }
-// ---------- Batalla: darle CURVA a la bola mientras rueda ----------
-// Lo que mueva la puntería (◀ ▶, joystick de lado, el dedo de lado o las flechas del teclado)
-// también voltea la bola que va rodando. Sin tocar nada, la puntería sigue a la bola.
+// ---------- Batalla: Conducción estilo Carrito y giro dinámico ----------
+// En Modo Batalla, la canica se maneja como un carrito (flechas del teclado o D-PAD en pantalla):
+// ▲ Adelante (acelerar rodando), ▼ Reversa/Freno, ◀ ▶ Girar dirección.
 let angPrevCurva = null;
 function curvaPaso(){
   const j = tirador;
   if (estado !== 'libre' || !j || j.ia || !j.vivo || j._comido){ angPrevCurva = null; return; }
-  const b = j.bola, vh = Math.hypot(b.v.x, b.v.z);
+  const b = j.bola;
+  if (!b.activa || b.enMano || b.cayendo || b.enHueco || (cohete && cohete.j === j)) return;
+
+  // Manejo de giro continuo con ◀ y ▶ (teclas o botones)
+  const giroVel = 2.8 * (1/60);
+  if (mando.teclas.izq) apunta.ang -= giroVel;
+  if (mando.teclas.der) apunta.ang += giroVel;
+
+  // Manejo de avance y retroceso estilo carrito con ▲ y ▼
+  const d = dirDe(apunta.ang || 0);
+  const vh = Math.hypot(b.v.x, b.v.z);
+  const accelCarro = 7.5 * (1/60);
+  const maxVelCarro = 9.5;
+
+  if (mando.teclas.arriba){
+    // Acelerar hacia adelante según la dirección que apunta
+    b.v.x += d.x * accelCarro;
+    b.v.z += d.z * accelCarro;
+    const nuevoV = Math.hypot(b.v.x, b.v.z);
+    if (nuevoV > maxVelCarro){
+      b.v.x = (b.v.x / nuevoV) * maxVelCarro;
+      b.v.z = (b.v.z / nuevoV) * maxVelCarro;
+    }
+    if (!j.tiroB) j.tiroB = {golpeados: new Set(), encholo: false, metidos: new Set(), t: 0, poder: j.poder};
+  } else if (mando.teclas.abajo){
+    // Reversa / Freno hacia atrás
+    b.v.x -= d.x * (accelCarro * 0.7);
+    b.v.z -= d.z * (accelCarro * 0.7);
+    const nuevoV = Math.hypot(b.v.x, b.v.z);
+    if (nuevoV > maxVelCarro * 0.5){
+      b.v.x = (b.v.x / nuevoV) * (maxVelCarro * 0.5);
+      b.v.z = (b.v.z / nuevoV) * (maxVelCarro * 0.5);
+    }
+    if (!j.tiroB) j.tiroB = {golpeados: new Set(), encholo: false, metidos: new Set(), t: 0, poder: j.poder};
+  }
+
   const rodando = !!j.tiroB && b.activa && !b.enMano && !b.cayendo && !b.enHueco && !b.hacia && b.p.y <= R + 0.03 && !(cohete && cohete.j === j) && vh > 0.3;
   if (rodando && angPrevCurva !== null){
-    const d = apunta.ang - angPrevCurva;
-    if (Math.abs(d) > 1e-6){
-      const h = Math.atan2(b.v.x, -b.v.z) + d;
+    const diff = apunta.ang - angPrevCurva;
+    if (Math.abs(diff) > 1e-6){
+      const h = Math.atan2(b.v.x, -b.v.z) + diff;
       b.v.x = Math.sin(h) * vh; b.v.z = -Math.cos(h) * vh;
       if (!j.tiroB.curvas){ j.tiroB.curvas = 1; if (window.ChirasAudio && window.ChirasAudio.sfx.derrape) window.ChirasAudio.sfx.derrape(); }
-    } else if (!apunta.arrastrando && !mando.cargando) apunta.ang = Math.atan2(b.v.x, -b.v.z);
+    } else if (!apunta.arrastrando && !mando.cargando && !mando.teclas.arriba && !mando.teclas.abajo) {
+      apunta.ang = Math.atan2(b.v.x, -b.v.z);
+    }
   }
   angPrevCurva = apunta.ang;
 }
@@ -3463,8 +3636,21 @@ addEventListener('keydown', e => {
   const c = e.code;
   if (c === 'ArrowLeft' || c === 'KeyA'){ mando.teclas.izq = true; e.preventDefault(); }
   else if (c === 'ArrowRight' || c === 'KeyD'){ mando.teclas.der = true; e.preventDefault(); }
+  else if (c === 'ArrowUp' || c === 'KeyW'){ mando.teclas.arriba = true; e.preventDefault(); }
+  else if (c === 'ArrowDown' || c === 'KeyS'){ mando.teclas.abajo = true; e.preventDefault(); }
   else if (c === 'ShiftLeft' || c === 'ShiftRight') mando.teclas.fino = true;
-  else if (c === 'Space' || c === 'Enter' || c === 'NumpadEnter'){ e.preventDefault(); if (!e.repeat) empezarCarga('tecla'); }
+  else if (c === 'Space' || c === 'Enter' || c === 'NumpadEnter'){
+    e.preventDefault();
+    if (!e.repeat){
+      const h = personaDelTeclado();
+      // En Modo Batalla, Espacio/Enter dispara el arma Tira-Bolas si tiene el poder
+      if (batallaLoca && h && h.tieneArmaTiraBolas && h.balasArma > 0){
+        dispararTiraBolas(h);
+      } else {
+        empezarCarga('tecla');
+      }
+    }
+  }
   else if (/^(Digit|Numpad)[1-8]$/.test(c) && !e.repeat){
     const h = personaDelTeclado(), k = BARRA[+c.slice(-1) - 1];
     if (h && k && k[0] !== 'nada' && $('#barraPod') && !$('#barraPod').hidden) tocarPoder(h, k[0]);
@@ -3477,10 +3663,12 @@ addEventListener('keyup', e => {
   const c = e.code;
   if (c === 'ArrowLeft' || c === 'KeyA') mando.teclas.izq = false;
   else if (c === 'ArrowRight' || c === 'KeyD') mando.teclas.der = false;
+  else if (c === 'ArrowUp' || c === 'KeyW') mando.teclas.arriba = false;
+  else if (c === 'ArrowDown' || c === 'KeyS') mando.teclas.abajo = false;
   else if (c === 'ShiftLeft' || c === 'ShiftRight') mando.teclas.fino = false;
   else if (c === 'Space' || c === 'Enter' || c === 'NumpadEnter') soltarCarga('tecla');
 });
-addEventListener('blur', () => { mando.teclas.izq = mando.teclas.der = mando.teclas.fino = false; soltarCarga('tecla'); });
+addEventListener('blur', () => { mando.teclas.izq = mando.teclas.der = mando.teclas.arriba = mando.teclas.abajo = mando.teclas.fino = false; soltarCarga('tecla'); });
 // mouse: la rueda afina la puntería
 lienzo.addEventListener('wheel', e => {
   if (!puedeApuntarAhora()) return;
@@ -3490,8 +3678,45 @@ lienzo.addEventListener('wheel', e => {
 document.querySelectorAll('#controles button').forEach(b => b.addEventListener('click', () => ponerControl(b.dataset.ctl)));
 document.querySelectorAll('#niveles button').forEach(b => b.addEventListener('click', () => ponerDificultad(b.dataset.nv)));
 try { ponerDificultad(localStorage.getItem('chiras-dificultad') || 'profesional'); } catch (e) { ponerDificultad('profesional'); }
-// la altura de la barra de poderes, para poner los controles encima
-setInterval(() => { const bp = $('#barraPod'); if (bp && !bp.hidden) document.documentElement.style.setProperty('--altoBarra', bp.offsetHeight + 'px'); mostrarMando(); }, 400);
+// Configuración de botones D-PAD y Gatillo en Celular para Modo Batalla
+(() => {
+  const dpad = $('#dpadBatalla');
+  if (dpad){
+    dpad.querySelectorAll('.dpad-btn').forEach(b => {
+      const k = b.dataset.k;
+      const presionar = e => {
+        e.preventDefault(); e.stopPropagation();
+        b.classList.add('activo');
+        if (k === 'arriba') mando.teclas.arriba = true;
+        else if (k === 'abajo') mando.teclas.abajo = true;
+        else if (k === 'izq') mando.teclas.izq = true;
+        else if (k === 'der') mando.teclas.der = true;
+      };
+      const soltar = e => {
+        b.classList.remove('activo');
+        if (k === 'arriba') mando.teclas.arriba = false;
+        else if (k === 'abajo') mando.teclas.abajo = false;
+        else if (k === 'izq') mando.teclas.izq = false;
+        else if (k === 'der') mando.teclas.der = false;
+      };
+      b.addEventListener('pointerdown', presionar);
+      b.addEventListener('pointerup', soltar);
+      b.addEventListener('pointercancel', soltar);
+      b.addEventListener('lostpointercapture', soltar);
+    });
+  }
+
+  const btnGatillo = $('#btnDisparoGatillo');
+  if (btnGatillo){
+    btnGatillo.addEventListener('pointerdown', e => {
+      e.preventDefault(); e.stopPropagation();
+      const h = personaDelTeclado();
+      if (h && h.tieneArmaTiraBolas && h.balasArma > 0){
+        dispararTiraBolas(h);
+      }
+    });
+  }
+})();
 try { ponerControl(localStorage.getItem('chiras-control') || 'honda'); } catch (e) { ponerControl('honda'); }
 
 // ---------- HUD ----------
@@ -3564,7 +3789,77 @@ function mostrarToastTurno(j){
   toastTimer = setTimeout(() => { t.classList.remove('ver'); }, 1400);
 }
 
-// Variables para Tiro Elevado, Bola Saltarina y Arma Tira-Bolas
+// Visual del Cañón / Arma Tira-Bolas 3D montado sobre la canica con poder en Modo Batalla
+const geoCanyonArma = new THREE.CylinderGeometry(0.024, 0.035, 0.22, 12);
+const matCanyonArma = new THREE.MeshStandardMaterial({color: 0x212121, metalness: 0.85, roughness: 0.25});
+const geoCanyonBase = new THREE.SphereGeometry(0.045, 12, 10);
+const matCanyonBase = new THREE.MeshStandardMaterial({color: 0xd50000, metalness: 0.5, roughness: 0.3});
+const geoAuraPoder = new THREE.RingGeometry(R * 1.3, R * 1.85, 32);
+const matAuraPoder = new THREE.MeshBasicMaterial({color: 0xffea00, transparent: true, opacity: 0.85, side: THREE.DoubleSide});
+const armasMeshes = new Map();
+const aurasMeshes = new Map();
+
+function actualizarArmasCanicas(dt){
+  jugadores.forEach(j => {
+    const b = j.bola;
+    const tieneCazador = batallaLoca && j.vivo && b.activa && (j.modoCazador || j.tieneArmaTiraBolas || j.poder);
+    
+    // 1. Arma Cañón 3D montado en el lomo de la canica
+    let armaGroup = armasMeshes.get(j);
+    if (!armaGroup && tieneCazador){
+      armaGroup = new THREE.Group();
+      const baseMesh = new THREE.Mesh(geoCanyonBase, matCanyonBase);
+      baseMesh.position.set(0, (b.radio || R) * 0.9, 0);
+      armaGroup.add(baseMesh);
+
+      const canoMesh = new THREE.Mesh(geoCanyonArma, matCanyonArma);
+      canoMesh.rotation.x = Math.PI / 2; // Apunta hacia adelante en el eje Z
+      canoMesh.position.set(0, (b.radio || R) * 0.95, 0.1);
+      armaGroup.add(canoMesh);
+
+      scene.add(armaGroup);
+      armasMeshes.set(j, armaGroup);
+    }
+    if (armaGroup){
+      if (tieneCazador && !b.enMano){
+        armaGroup.visible = true;
+        armaGroup.position.copy(b.p);
+        // Apuntar el cañón en la dirección de la mira
+        const ang = (j === tirador) ? (apunta.ang || 0) : Math.atan2(b.v.x, -b.v.z);
+        armaGroup.rotation.y = ang;
+      } else {
+        armaGroup.visible = false;
+      }
+    }
+
+    // 2. Aura luminosa y distintiva dorada/eléctrica en el piso
+    let aura = aurasMeshes.get(j);
+    if (!aura && tieneCazador){
+      aura = new THREE.Mesh(geoAuraPoder, matAuraPoder);
+      aura.rotation.x = -Math.PI / 2;
+      scene.add(aura);
+      aurasMeshes.set(j, aura);
+    }
+    if (aura){
+      if (tieneCazador && !b.enMano){
+        aura.visible = true;
+        aura.position.set(b.p.x, 0.008, b.p.z);
+        aura.rotation.z += dt * 3.5;
+        const s = 1.0 + Math.sin(reloj * 6) * 0.15;
+        aura.scale.set(s, s, s);
+      } else {
+        aura.visible = false;
+      }
+    }
+  });
+}
+
+function limpiarArmasVisuales(){
+  armasMeshes.forEach(m => scene.remove(m));
+  armasMeshes.clear();
+  aurasMeshes.forEach(a => scene.remove(a));
+  aurasMeshes.clear();
+}
 const ALTURA_FLECHA = 1.05; // Altura alta desde donde se dispara naturalmente
 let modoSaltarina = false;
 
@@ -3617,6 +3912,18 @@ function actualizarProyectilesArma(dt){
     p.x += p.vx * dt;
     p.z += p.vz * dt;
     p.mesh.position.set(p.x, R + 0.05, p.z);
+
+    // Revisar impacto contra barreras (la barrera frena las balas)
+    for (const w of barreras){
+      const lHalf = (w.largo || BAR_L) / 2;
+      const dx = p.x - w.cx, dz = p.z - w.cz;
+      const u = Math.max(-lHalf, Math.min(lHalf, dx * w.ux + dz * w.uz));
+      if (Math.hypot(dx - w.ux * u, dz - w.uz * u) < (w.esBatalla ? 0.35 : 0.15)){
+        p.vida = 0;
+        popupArcade('🛡️ BLOQUEADO', p.x, R + 0.4, p.z, '#00e5ff');
+        break;
+      }
+    }
 
     // Revisar impacto contra rivales
     jugadores.forEach(r => {
@@ -4454,6 +4761,7 @@ function bucle(ahora){
   });
 
   actualizarEscudos();
+  actualizarArmasCanicas(dt);
   actualizarEstelas(dt);
   actualizarProyectilesArma(dt);
 
