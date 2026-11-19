@@ -2458,13 +2458,15 @@ function resolverTiro(){
     if (encholo) otraVez = true;   // con el poder, si se vuelve a encholar también sigue
     if (batallaLoca){
       // En MODO BATALLA: No elimina al oponente pipiándolo/comiéndolo directamente.
-      // Le da el poder especial del arma Tira-Bolas para disparar ráfagas de canicas.
+      // Regla: Solo se elimina al oponente disparando con el Modo Cazador (Tira-Bolas).
       s.tieneArmaTiraBolas = true;
+      s.modoCazador = true;
       s.balasArma = (s.balasArma || 0) + 6;
-      msgs.push(`🔫 ¡${s.nombre} tiene el TIRA-BOLAS!`);
-      msgs.push(`¡Arma cargada con ${s.balasArma} proyectiles!`);
+      msgs.push(`🎯 ¡${s.nombre} entró en MODO CAZADOR!`);
+      msgs.push(`🔫 ¡Tira-Bolas cargado con ${s.balasArma} proyectiles!`);
       sfx.poder();
-      popupArcade('🔫 ¡TIRA-BOLAS LISTO!', s.bola.p.x, R + 0.8, s.bola.p.z, '#ff1744');
+      popupArcade('🎯 MODO CAZADOR', s.bola.p.x, R + 0.8, s.bola.p.z, '#ff1744');
+      actualizarBotonTiraBolas();
       otraVez = true;
     } else {
       const grandes = [];
@@ -2756,7 +2758,11 @@ function alChocarLibre(a, b, f, va, vb){
   const punto = a.p.clone().add(b.p).multiplyScalar(0.5);
   if (ganchos.alImpacto) ganchos.alImpacto(atac, vic, f, punto);   // efectos: con el poder se la traga (visual), sin poder chispas
   // con el poder (y si no es grande) la bola queda "adentro" hasta que se resuelva el tiro
-  if (atac.poder && !(vic.tragadas || []).length){ vic._comido = atac; vic.bola.activa = false; vic.bola.v.set(0, 0, 0); if (vic.tiroB) vic.tiroB = null; }
+  // NOTA: En Batalla Loca solo se elimina mediante disparos de canica (Tira-Bolas / Modo Cazador)
+  if (atac.poder && !batallaLoca && !(vic.tragadas || []).length){ vic._comido = atac; vic.bola.activa = false; vic.bola.v.set(0, 0, 0); if (vic.tiroB) vic.tiroB = null; }
+  else if (batallaLoca){
+    popupArcade('💥 ¡CHOQUE!', punto.x, R + 0.4, punto.z, '#ff9100');
+  }
 }
 function devolverComidos(por){
   jugadores.forEach(v => { if (v._comido === por){ v._comido = null; v._estallo = false; v.bola.activa = true; v.bola.mesh.visible = true; } });
@@ -2790,11 +2796,13 @@ function resolverLibre(j){
   } else if (j.poder){
     if (batallaLoca){
       j.tieneArmaTiraBolas = true;
+      j.modoCazador = true;
       j.balasArma = (j.balasArma || 0) + 6;
-      msgs.push(`🔫 ¡${j.nombre} activó el TIRA-BOLAS!`);
-      msgs.push(`¡${j.balasArma} proyectiles listos para disparar!`);
+      msgs.push(`🎯 ¡${j.nombre} entró en MODO CAZADOR!`);
+      msgs.push(`🔫 ¡Tira-Bolas cargado con ${j.balasArma} proyectiles!`);
       sfx.poder();
-      popupArcade('🔫 ¡TIRA-BOLAS!', j.bola.p.x, R + 0.8, j.bola.p.z, '#ff1744');
+      popupArcade('🎯 MODO CAZADOR', j.bola.p.x, R + 0.8, j.bola.p.z, '#ff1744');
+      actualizarBotonTiraBolas();
     } else {
       comidos = victimas.filter(v => v._comido === j);
       comidos.forEach(v => { eliminarLibre(v, j); j.tragadas.push({id: v.juega, nombre: v.nombre}); });
@@ -2817,15 +2825,29 @@ function resolverLibre(j){
 }
 function iaLibre(j, dt){
   if (!j.vivo || j._comido) return;
-  // defensa: el cohete viene por mí, o uno con el poder viene rodando hacia mí
-  const amenaza = (cohete && cohete.obj === j) || jugadores.some(o => o !== j && o.vivo && o.poder && o.tiroB && !(j.tragadas || []).length && distH(o.bola.p, j.bola.p) < 5);
+  // defensa: balas del tira-bolas cerca, cohete o bola enemiga con poder
+  const balaAmenaza = proyectilesArma.some(p => p.dueno !== j && Math.hypot(p.x - j.bola.p.x, p.z - j.bola.p.z) < 4.0);
+  const amenaza = balaAmenaza || (cohete && cohete.obj === j) || jugadores.some(o => o !== j && o.vivo && o.poder && o.tiroB && !(j.tragadas || []).length && distH(o.bola.p, j.bola.p) < 5);
   j.defT = (j.defT || 0) - dt;
   if (amenaza && j.defT <= 0){
     j.defT = 2;
-    if (Math.random() < ((cohete && cohete.obj === j) ? 0.6 : 0.25) * (0.4 + DIFICULTAD.defensa)){
-      for (const k of ((cohete && cohete.obj === j) ? ['arena', 'barrera', 'viento'] : ['barrera', 'arena', 'desquadris'])){ if (puedeCantar(j, k) && usarCanto(j, k, k === 'desquadris' ? ladoAuto(j) : 1)) break; }
+    // Si viene una bala del Tira-Bolas, activar de inmediato el Chaleco Antibalas (Escudo)
+    if (balaAmenaza && puedeCantar(j, 'escudo')){
+      usarCanto(j, 'escudo');
+    } else if (Math.random() < ((cohete && cohete.obj === j) ? 0.6 : 0.25) * (0.4 + DIFICULTAD.defensa)){
+      for (const k of ((cohete && cohete.obj === j) ? ['escudo', 'arena', 'barrera', 'viento'] : ['escudo', 'barrera', 'arena', 'desquadris'])){ if (puedeCantar(j, k) && usarCanto(j, k, k === 'desquadris' ? ladoAuto(j) : 1)) break; }
     }
   }
+
+  // Si la IA tiene el arma Tira-Bolas y balas, dispara ráfagas tácticas hacia los rivales vivos
+  if (j.tieneArmaTiraBolas && j.balasArma > 0){
+    j.tDisparoIA = (j.tDisparoIA || 0) - dt;
+    if (j.tDisparoIA <= 0){
+      j.tDisparoIA = rnd(0.8, 1.8);
+      dispararTiraBolas(j);
+    }
+  }
+
   if (!libreListo(j)) return;
   j.iaT -= dt; if (j.iaT > 0) return;
   j.iaT = rnd(DIFICULTAD.espera[0], DIFICULTAD.espera[1]);
@@ -2912,7 +2934,16 @@ function revisarAroLuz(){
     if (!aro) aro = huecosExtra.find(h => Math.abs(distH(b.p, h.p) - ARO_CHICO) <= tol) || null;
     if (!aro) return;
     j.poder = true; if (aro === 'grande') aroBrillo = 1; else aro.brillo = 1;
-    aviso(`✨ ¡${j.nombre} pasó por el aro de luz!\nTiene el poder`);
+    if (batallaLoca){
+      j.tieneArmaTiraBolas = true;
+      j.modoCazador = true;
+      j.balasArma = (j.balasArma || 0) + 6;
+      aviso(`🎯 ¡${j.nombre} pasó por el aro de luz!\n¡ENTRÓ EN MODO CAZADOR (+6 balas)!`);
+      popupArcade('🎯 MODO CAZADOR', b.p.x, R + 0.8, b.p.z, '#ff1744');
+      actualizarBotonTiraBolas();
+    } else {
+      aviso(`✨ ¡${j.nombre} pasó por el aro de luz!\nTiene el poder`);
+    }
     sfx.poder();
     if (window.ChirasAudio) window.ChirasAudio.voz('aro', '¡Aro de luz! ¡Tiene el poder!', [j]);
     if (window.ChirasGraficos){ window.ChirasGraficos.onda(b.p, 0xffe27a, 3); window.ChirasGraficos.destello(b.p, 0xffe27a, 1.2); }
@@ -3455,7 +3486,9 @@ function actualizarHUD(){
     d.appendChild(document.createTextNode(j.nombre));
     const n = document.createElement('span'); n.className = 'cuenta'; n.textContent = j.bolsa.length; d.appendChild(n);
     const tag = (t, c) => { const p = document.createElement('span'); p.className = c; p.textContent = t; d.appendChild(p); };
-    if (j.poder) tag('PODER', 'poder');
+    if (j.modoCazador || (batallaLoca && j.poder)) tag('🎯 CAZADOR', 'poder');
+    else if (j.poder) tag('PODER', 'poder');
+    if (j.tieneEscudo) tag('🛡️ CHALECO', 'canto');
     if (defensas.ochera.has(j)) tag('OCHERA', 'canto');
     if (defensas.carambola.has(j)) tag('CARAMBOLA', 'canto');
     if (arroyueloModo) tag(`🔵 ${(j.sacadas || []).length}`, 'canto');
@@ -3513,18 +3546,26 @@ const proyectilesArma = [];
 const geoBalaArma = new THREE.SphereGeometry(R * 0.45, 12, 10);
 const matBalaArma = new THREE.MeshBasicMaterial({color: 0xff1744});
 
-function dispararTiraBolas(j){
+function dispararTiraBolas(j, anguloCustom){
   if (!j || !j.vivo || !(j.balasArma > 0)) return;
   j.balasArma--;
   const b = j.bola;
-  const d = dirDe(apunta.ang || 0);
+  let ang = (anguloCustom !== undefined) ? anguloCustom : (apunta.ang || 0);
+  if (j.ia && anguloCustom === undefined){
+    const presas = jugadores.filter(o => o !== j && o.vivo && o.bola.activa && !o.bola.enMano);
+    if (presas.length){
+      const masCercana = presas.sort((a, c) => distH(a.bola.p, b.p) - distH(c.bola.p, b.p))[0];
+      ang = angHacia(b.p, masCercana.bola.p) + gauss() * 0.05;
+    }
+  }
+  const d = dirDe(ang);
   
-  // Crear mesh de la mini canica proyectil
+  // Crear mesh de la mini canica proyectil (proyectil brillante de fuego rápido)
   const mesh = new THREE.Mesh(geoBalaArma, matBalaArma);
-  mesh.position.set(b.p.x + d.x * 0.4, R + 0.05, b.p.z + d.z * 0.4);
+  mesh.position.set(b.p.x + d.x * 0.45, R + 0.05, b.p.z + d.z * 0.45);
   scene.add(mesh);
 
-  const velArma = 18.0;
+  const velArma = 22.0;
   proyectilesArma.push({
     mesh,
     x: mesh.position.x,
@@ -3532,13 +3573,13 @@ function dispararTiraBolas(j){
     vx: d.x * velArma,
     vz: d.z * velArma,
     dueno: j,
-    vida: 2.5
+    vida: 2.8
   });
 
   sfx.choque(12);
-  sacudirCamara(0.6);
+  sacudirCamara(0.7);
   popupArcade('💥 ¡FUEGO!', mesh.position.x, R + 0.4, mesh.position.z, '#ff1744');
-  aviso(`🔫 ¡Disparo Tira-Bolas! Quedan ${j.balasArma} proyectiles`);
+  if (j.humano && !j.ia) aviso(`🔫 ¡Disparo Tira-Bolas! Balas restantes: ${j.balasArma}`);
   actualizarBotonTiraBolas();
 }
 
@@ -3554,25 +3595,31 @@ function actualizarProyectilesArma(dt){
     jugadores.forEach(r => {
       if (r !== p.dueno && r.vivo && r.bola.activa && !r.bola.enMano){
         const dist = Math.hypot(r.bola.p.x - p.x, r.bola.p.z - p.z);
-        if (dist < (r.bola.radio || R) + R * 0.5){
-          // Impacto del proyectil de arma: empuja con fuerza y quita vida / canica
+        if (dist < (r.bola.radio || R) + R * 0.55){
+          // Impacto del proyectil de arma: empuja con fuerza
           p.vida = 0;
-          r.bola.v.x += p.vx * 0.55;
-          r.bola.v.z += p.vz * 0.55;
-          sacudirCamara(1.2);
-          popupArcade('💥 ¡IMPACTO CRÍTICO!', r.bola.p.x, R + 0.6, r.bola.p.z, '#ff1744');
-          aviso(`💥 ¡El Tira-Bolas de ${p.dueno.nombre} impactó a ${r.nombre}!`);
+          r.bola.v.x += p.vx * 0.6;
+          r.bola.v.z += p.vz * 0.6;
+          sacudirCamara(1.4);
 
-          // Si el oponente no tenía escudo, queda eliminado o pierde su canica
+          // Si el oponente tiene Chaleco Antibalas (Escudo Neón), absorbe el disparo y se desgasta
           if (r.tieneEscudo){
             r.tieneEscudo = false;
-            popupArcade('🛡️ ESCUDO ROTO', r.bola.p.x, R + 0.6, r.bola.p.z, '#00e5ff');
+            if (escudosMeshes && escudosMeshes.has(r)){
+              const m = escudosMeshes.get(r);
+              if (m) m.visible = false;
+            }
+            sfx.choque(10);
+            popupArcade('🛡️ ¡CHALECO ABSORBIÓ!', r.bola.p.x, R + 0.7, r.bola.p.z, '#00e5ff');
+            aviso(`🛡️ ¡El Chaleco Antibalas de ${r.nombre} absorbió el disparo certero!`);
           } else {
+            // Sin protección: ¡ELIMINADO POR DISPARO CERTERO!
+            popupArcade('💀 ¡DISPARO CERTERO!', r.bola.p.x, R + 0.7, r.bola.p.z, '#ff1744');
             r.vivo = false;
             r.bola.activa = false;
             r.bola.mesh.visible = false;
             pasarCanica(r, p.dueno);
-            aviso(`💀 ¡${r.nombre} fue reventado por el Tira-Bolas!`);
+            aviso(`💀 ¡${r.nombre} eliminado por disparo certero del Tira-Bolas!`);
             sfx.caza();
             if (vivos().length <= 1){
               estado = 'fin';
@@ -3614,10 +3661,10 @@ function actualizarBotonTiraBolas(){
   const btn = $('#btnTiraBolas');
   if (!btn) return;
   const h = (tirador && tirador.humano && !tirador.ia) ? tirador : jugadores.find(j => j.humano && !j.ia);
-  const tieneArma = h && h.tieneArmaTiraBolas && (h.balasArma > 0) && estado !== 'menu';
+  const tieneArma = h && h.tieneArmaTiraBolas && (h.balasArma > 0) && estado !== 'menu' && h.vivo;
   btn.hidden = !tieneArma;
   if (tieneArma){
-    btn.innerHTML = `<span>🔫</span>Tira-Bolas (<b>${h.balasArma}</b>)`;
+    btn.innerHTML = `<span>🎯</span>Modo Cazador · Tira-Bolas (<b>${h.balasArma}</b>)`;
   }
 }
 function actualizarBotonVista(){ $('#btnVista').setAttribute('aria-pressed', vistaAerea ? 'true' : 'false'); }
