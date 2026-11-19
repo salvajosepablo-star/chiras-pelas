@@ -275,29 +275,11 @@ if ('speechSynthesis' in window){
   speechSynthesis.onvoiceschanged = () => { vozElegida = elegirVoz(); };
 }
 let ultimaVoz = 0;
+// Solo se permiten burlas sonoras divertidas (trombon triste, risa, uups, buu, etc.)
+// La narración hablada robótica queda completamente eliminada a petición del usuario.
 function voz(clave, texto, quienes){
-  // si la frase es sobre ciertas bolas, solo se dice en el celular de esas bolas
-  if (quienes && N.meToca && !N.meToca(quienes)) return;
-  const t = texto || FRASES[clave] || clave;
-  if (N.MODO_PRUEBA){ console.log('[voz] ' + t); return; }
-  if (!N.sonidoActivo() || N.volumen.voz <= 0) return;
-  const g = grabadas[clave];
-  if (g){
-    try { g.pause(); g.currentTime = 0; g.volume = N.volumen.voz; g.play().catch(() => {}); } catch (e) {}
-    return;
-  }
-  if (!('speechSynthesis' in window)) return;
-  try {
-    // si el narrador está hablando hace rato, se corta para anunciar lo nuevo
-    const ahora = performance.now();
-    if (speechSynthesis.speaking && ahora - ultimaVoz > 700) speechSynthesis.cancel();
-    ultimaVoz = ahora;
-    const u = new SpeechSynthesisUtterance(t);
-    if (vozElegida){ u.voice = vozElegida; u.lang = vozElegida.lang; } else u.lang = 'es-CO';
-    // juvenil y pícaro: un poquito más agudo y rápido, y cada frase con su propia entonación
-    u.rate = 1.13 + Math.random() * 0.08; u.pitch = 1.22 + Math.random() * 0.12; u.volume = N.volumen.voz;
-    speechSynthesis.speak(u);
-  } catch (e) {}
+  // Silenciar narrador hablado
+  return;
 }
 function nombreVoz(){ return vozElegida ? `${vozElegida.name} (${vozElegida.lang})` : 'ninguna'; }
 // Selector de voz en el menú (con botón para probar)

@@ -668,9 +668,11 @@ body.hud-oculto #btnSonido{
       <button type="button" data-nv="legendario" aria-pressed="false">👑 Legendario</button>
     </div>
     <p class="nota" id="notaNivel"></p>
-    <h2>Controles</h2>
+    <h2>Controles de Tiro</h2>
     <div class="rivales" id="controles">
-      <button type="button" data-ctl="arrastrar" aria-pressed="true">👆 Arrastrar</button>
+      <button type="button" data-ctl="honda" aria-pressed="true">🎯 Resorte / Honda (Estilo Angry Birds)</button>
+      <button type="button" data-ctl="flick" aria-pressed="false">⚡ Deslizar Rápido (Flick / Swipe)</button>
+      <button type="button" data-ctl="arrastrar" aria-pressed="false">👆 Arrastrar Clásico</button>
       <button type="button" data-ctl="botones" aria-pressed="false">🎯 Botones</button>
       <button type="button" data-ctl="joystick" aria-pressed="false">🕹️ Joystick</button>
     </div>
@@ -2857,16 +2859,45 @@ lienzo.addEventListener('pointerdown', e => {
   mando.fuente = null;
   if (vistaAerea){ vistaAerea = false; actualizarBotonVista(); }
   apunta.arrastrando = true; apunta.x0 = e.clientX; apunta.y0 = e.clientY; apunta.ang0 = apunta.ang; apunta.t0 = reloj; apunta.temblor = 0;
+  apunta.lastX = e.clientX; apunta.lastY = e.clientY; apunta.lastT = performance.now();
   lienzo.setPointerCapture && lienzo.setPointerCapture(e.pointerId);
 });
 lienzo.addEventListener('pointermove', e => {
   if (!apunta.arrastrando || mando.cargando) return;
-  apunta.ang = apunta.ang0 + (e.clientX - apunta.x0) * 0.004;
-  apunta.fuerza = Math.max(0, Math.min(1, (e.clientY - apunta.y0) / (innerHeight * 0.33)));
+  const dx = e.clientX - apunta.x0, dy = e.clientY - apunta.y0;
+  
+  if (mando.modo === 'honda'){
+    // Modo Resorte / Honda (Tira hacia atrás y apunta al lado opuesto intuitivamente)
+    const dist = Math.hypot(dx, dy);
+    apunta.fuerza = Math.max(0, Math.min(1, dist / (innerHeight * 0.28)));
+    if (dist > 8){
+      // Ángulo opuesto a la dirección en que jalas con el dedo
+      apunta.ang = apunta.ang0 - Math.atan2(dx, dy);
+    }
+  } else if (mando.modo === 'flick'){
+    // Modo Flick: guardar velocidad del trazo
+    const ahora = performance.now(), dt = (ahora - apunta.lastT) / 1000;
+    if (dt > 0.01){
+      apunta.vx = (e.clientX - apunta.lastX) / dt;
+      apunta.vy = (e.clientY - apunta.lastY) / dt;
+      apunta.lastX = e.clientX; apunta.lastY = e.clientY; apunta.lastT = ahora;
+    }
+    apunta.ang = apunta.ang0 + dx * 0.004;
+    apunta.fuerza = Math.max(0, Math.min(1, Math.hypot(apunta.vx || 0, apunta.vy || 0) / 2200));
+  } else {
+    // Arrastrar clásico
+    apunta.ang = apunta.ang0 + dx * 0.004;
+    apunta.fuerza = Math.max(0, Math.min(1, dy / (innerHeight * 0.33)));
+  }
 });
 const soltar = () => {
   if (!apunta.arrastrando) return;
   apunta.arrastrando = false;
+  if (mando.modo === 'flick' && apunta.vy && apunta.vy < -250){
+    // Flick hacia adelante: calcula potencia por velocidad del latigazo
+    const velFlick = Math.hypot(apunta.vx, apunta.vy);
+    apunta.fuerza = Math.max(0.1, Math.min(1, velFlick / 2400));
+  }
   if (estado === 'apuntar' && !defensor && apunta.fuerza > 0.03) tirar(apunta.ang + (apunta.temblor || 0), apunta.fuerza);   // el temblor del pulso cuenta en el tiro real
   else if (estado === 'libre' && apunta.fuerza > 0.03 && tirador) tirarEnMarcha(tirador, apunta.ang + (apunta.temblor || 0), apunta.fuerza);
   else apunta.fuerza = 0;
@@ -2876,14 +2907,16 @@ lienzo.addEventListener('pointerup', () => { if (!mando.cargando) soltar(); });
 lienzo.addEventListener('pointercancel', () => { if (!mando.cargando) soltar(); });
 
 // ---------- Otros controles: botones, joystick, teclado y mouse (Clásico y Batalla) ----------
-const mando = {modo: 'arrastrar', giroBtn: 0, giroT: 0, cargando: false, fuente: null, sube: 1, stick: {x: 0, y: 0}, teclas: {izq: false, der: false, fino: false}};
+const mando = {modo: 'honda', giroBtn: 0, giroT: 0, cargando: false, fuente: null, sube: 1, stick: {x: 0, y: 0}, teclas: {izq: false, der: false, fino: false}};
 const PISTAS_CONTROL = {
-  arrastrar: 'Arrastre hacia abajo para cargar la fuerza y a los lados para apuntar. Suelte para tirar. Sin línea de puntería: todo es a pulso.',
-  botones: 'Apunte con ◀ ▶ (manténgalos para girar más rápido). Mantenga 🎯 TIRAR: la fuerza sube y baja; suéltelo en el punto justo. También puede arrastrar con el dedo.',
-  joystick: 'Joystick: a los lados apunta, hacia abajo carga la fuerza. Suéltelo para tirar. También puede arrastrar con el dedo.'
+  honda: '🎯 Modo Resorte / Cauchera: arrastre la bola hacia atrás en la dirección contraria para apuntar y tensar. ¡Suelte como una resortera!',
+  flick: '⚡ Modo Deslizar Rápido: lance con un golpe de dedo veloz hacia adelante como en los juegos de fútbol o bolos.',
+  arrastrar: '👆 Arrastrar Clásico: arrastre hacia abajo para cargar fuerza y a los lados para apuntar. Suelte para tirar.',
+  botones: '🎯 Apunte con ◀ ▶ y mantenga TIRAR: la fuerza sube y baja rítmicamente.',
+  joystick: '🕹️ Joystick: a los lados apunta, hacia abajo carga la fuerza.'
 };
 function ponerControl(m){
-  if (!PISTAS_CONTROL[m]) m = 'arrastrar';
+  if (!PISTAS_CONTROL[m]) m = 'honda';
   mando.modo = m;
   try { localStorage.setItem('chiras-control', m); } catch (e) {}
   document.querySelectorAll('#controles button').forEach(b => b.setAttribute('aria-pressed', b.dataset.ctl === m ? 'true' : 'false'));
@@ -3090,7 +3123,7 @@ document.querySelectorAll('#niveles button').forEach(b => b.addEventListener('cl
 try { ponerDificultad(localStorage.getItem('chiras-dificultad') || 'profesional'); } catch (e) { ponerDificultad('profesional'); }
 // la altura de la barra de poderes, para poner los controles encima
 setInterval(() => { const bp = $('#barraPod'); if (bp && !bp.hidden) document.documentElement.style.setProperty('--altoBarra', bp.offsetHeight + 'px'); mostrarMando(); }, 400);
-try { ponerControl(localStorage.getItem('chiras-control') || 'arrastrar'); } catch (e) { ponerControl('arrastrar'); }
+try { ponerControl(localStorage.getItem('chiras-control') || 'honda'); } catch (e) { ponerControl('honda'); }
 
 // ---------- HUD ----------
 const colaAvisos = []; let avisoActivo = false;
